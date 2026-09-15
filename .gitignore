@@ -45,3 +45,7 @@ Thumbs.db
 coverage/
 TestResults/
 *.trx
+
+# AI assistant instructions
+CLAUDE.md
+**/CLAUDE.md
