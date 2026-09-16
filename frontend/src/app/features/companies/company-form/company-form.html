@@ -1,0 +1,66 @@
+<form class="company-form" [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+  <h2>Add a company</h2>
+
+  <div class="form-field">
+    <label for="company-name">Company name</label>
+    <input
+      id="company-name"
+      type="text"
+      formControlName="name"
+      autocomplete="organization"
+      [attr.aria-invalid]="showError('name')"
+      [attr.aria-describedby]="showError('name') ? 'company-name-error' : null"
+    />
+    @if (showError('name')) {
+      <p id="company-name-error" class="error-message" role="alert">
+        @if (form.controls.name.hasError('required')) {
+          Company name is required.
+        } @else if (form.controls.name.hasError('minlength')) {
+          Company name must be at least {{ minimumNameLength }} characters long.
+        }
+      </p>
+    }
+  </div>
+
+  <div class="form-field">
+    <label for="company-website">Website URL</label>
+    <input
+      id="company-website"
+      type="url"
+      formControlName="websiteUrl"
+      autocomplete="url"
+      placeholder="https://example.com"
+      [attr.aria-invalid]="showError('websiteUrl')"
+      [attr.aria-describedby]="showError('websiteUrl') ? 'company-website-error' : null"
+    />
+    @if (showError('websiteUrl')) {
+      <p id="company-website-error" class="error-message" role="alert">
+        @if (form.controls.websiteUrl.hasError('required')) {
+          Website URL is required.
+        } @else if (form.controls.websiteUrl.hasError('invalidUrl')) {
+          Website URL must be a valid URL starting with http:// or https://.
+        }
+      </p>
+    }
+  </div>
+
+  @if (backendErrors(); as errors) {
+    <ul class="error-message backend-errors" role="alert">
+      @for (error of errors; track error) {
+        <li>{{ error }}</li>
+      }
+    </ul>
+  }
+
+  @if (genericErrorMessage(); as message) {
+    <p class="error-message" role="alert">{{ message }}</p>
+  }
+
+  @if (successMessage(); as message) {
+    <p class="success-message" role="status">{{ message }}</p>
+  }
+
+  <button type="submit" [disabled]="isSubmitting()">
+    {{ isSubmitting() ? 'Submitting…' : 'Add company' }}
+  </button>
+</form>
