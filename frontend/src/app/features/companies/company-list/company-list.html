@@ -1,0 +1,14 @@
+@if (companies().length === 0) {
+  <p class="empty-state">No companies have been added yet.</p>
+} @else {
+  <ul class="company-list">
+    @for (company of companies(); track company.id) {
+      <li class="company-list-item">
+        <span class="company-name">{{ company.name }}</span>
+        <a [href]="company.websiteUrl" target="_blank" rel="noopener noreferrer">
+          {{ company.websiteUrl }}
+        </a>
+      </li>
+    }
+  </ul>
+}

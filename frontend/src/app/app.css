@@ -1,0 +1,8 @@
+.load-status {
+  text-align: center;
+  color: #767676;
+}
+
+.load-error {
+  color: #b3261e;
+}
