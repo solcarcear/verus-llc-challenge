@@ -48,9 +48,14 @@ public sealed class CompaniesController : ControllerBase
 
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<CompanyResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<CompanyResponse>>> GetAllCompanies(CancellationToken cancellationToken)
+    public async Task<ActionResult<IEnumerable<CompanyResponse>>> GetAllCompanies(
+        [FromQuery(Name = "search")] string? search,
+        CancellationToken cancellationToken)
     {
-        var companies = await _companyService.GetAllCompaniesAsync(cancellationToken);
+        var companies = string.IsNullOrWhiteSpace(search)
+            ? await _companyService.GetAllCompaniesAsync(cancellationToken)
+            : await _companyService.SearchCompaniesAsync(search, cancellationToken);
+
         return Ok(companies.Select(CompanyResponse.FromDomain));
     }
 

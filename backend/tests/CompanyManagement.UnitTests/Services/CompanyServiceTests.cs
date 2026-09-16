@@ -136,6 +136,172 @@ public class CompanyServiceTests
         Assert.Null(result);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task SearchCompaniesAsync_NullOrEmptyQuery_ReturnsAllCompanies(string? query)
+    {
+        var repository = new FakeCompanyRepository();
+        repository.Companies.Add(new Company(Guid.NewGuid(), "Acme Corp", "https://acme.com"));
+        repository.Companies.Add(new Company(Guid.NewGuid(), "Microsoft Corporation", "https://microsoft.com"));
+        var service = CreateService(repository);
+
+        var results = await service.SearchCompaniesAsync(query);
+
+        Assert.Equal(2, results.Count);
+    }
+
+    [Fact]
+    public async Task SearchCompaniesAsync_ExactCompanyNameMatch_ReturnsCompany()
+    {
+        var company = new Company(Guid.NewGuid(), "Microsoft Corporation", "https://microsoft.com");
+        var repository = new FakeCompanyRepository();
+        repository.Companies.Add(company);
+        var service = CreateService(repository);
+
+        var results = await service.SearchCompaniesAsync("Microsoft Corporation");
+
+        Assert.Single(results);
+        Assert.Equal(company, results[0]);
+    }
+
+    [Fact]
+    public async Task SearchCompaniesAsync_PartialCompanyNameMatch_ReturnsCompany()
+    {
+        var company = new Company(Guid.NewGuid(), "Microsoft Corporation", "https://microsoft.com");
+        var repository = new FakeCompanyRepository();
+        repository.Companies.Add(company);
+        var service = CreateService(repository);
+
+        var results = await service.SearchCompaniesAsync("micro");
+
+        Assert.Single(results);
+        Assert.Equal(company, results[0]);
+    }
+
+    [Fact]
+    public async Task SearchCompaniesAsync_CompanyNameMatch_IsCaseInsensitive()
+    {
+        var company = new Company(Guid.NewGuid(), "Microsoft Corporation", "https://microsoft.com");
+        var repository = new FakeCompanyRepository();
+        repository.Companies.Add(company);
+        var service = CreateService(repository);
+
+        var results = await service.SearchCompaniesAsync("MICROSOFT");
+
+        Assert.Single(results);
+        Assert.Equal(company, results[0]);
+    }
+
+    [Fact]
+    public async Task SearchCompaniesAsync_ExactDomainMatch_ReturnsCompany()
+    {
+        var company = new Company(Guid.NewGuid(), "Acme Corp", "https://acme.com");
+        var repository = new FakeCompanyRepository();
+        repository.Companies.Add(company);
+        var service = CreateService(repository);
+
+        var results = await service.SearchCompaniesAsync("acme.com");
+
+        Assert.Single(results);
+        Assert.Equal(company, results[0]);
+    }
+
+    [Fact]
+    public async Task SearchCompaniesAsync_PartialDomainMatch_ReturnsCompany()
+    {
+        var company = new Company(Guid.NewGuid(), "Acme Corp", "https://acme.com");
+        var repository = new FakeCompanyRepository();
+        repository.Companies.Add(company);
+        var service = CreateService(repository);
+
+        var results = await service.SearchCompaniesAsync("acme");
+
+        Assert.Single(results);
+        Assert.Equal(company, results[0]);
+    }
+
+    [Fact]
+    public async Task SearchCompaniesAsync_IgnoresWwwPrefix_WhenMatchingDomain()
+    {
+        var company = new Company(Guid.NewGuid(), "Microsoft Corporation", "https://www.microsoft.com");
+        var repository = new FakeCompanyRepository();
+        repository.Companies.Add(company);
+        var service = CreateService(repository);
+
+        var results = await service.SearchCompaniesAsync("microsoft.com");
+
+        Assert.Single(results);
+        Assert.Equal(company, results[0]);
+    }
+
+    [Fact]
+    public async Task SearchCompaniesAsync_ExcludesUnrelatedCompanies()
+    {
+        var repository = new FakeCompanyRepository();
+        repository.Companies.Add(new Company(Guid.NewGuid(), "Acme Corp", "https://acme.com"));
+        repository.Companies.Add(new Company(Guid.NewGuid(), "Microsoft Corporation", "https://microsoft.com"));
+        var service = CreateService(repository);
+
+        var results = await service.SearchCompaniesAsync("micro");
+
+        Assert.Single(results);
+        Assert.Equal("Microsoft Corporation", results[0].Name);
+    }
+
+    [Fact]
+    public async Task SearchCompaniesAsync_OrdersStrongestMatchesFirst()
+    {
+        var exactMatch = new Company(Guid.NewGuid(), "Acme", "https://acme.com");
+        var containsMatch = new Company(Guid.NewGuid(), "Global Acme Partners", "https://globalacme.com");
+        var repository = new FakeCompanyRepository();
+        repository.Companies.Add(containsMatch);
+        repository.Companies.Add(exactMatch);
+        var service = CreateService(repository);
+
+        var results = await service.SearchCompaniesAsync("acme");
+
+        Assert.Equal(2, results.Count);
+        Assert.Equal(exactMatch, results[0]);
+        Assert.Equal(containsMatch, results[1]);
+    }
+
+    [Fact]
+    public async Task SearchCompaniesAsync_UsesAlphabeticalOrder_WhenScoresTie()
+    {
+        var acmeGroup = new Company(Guid.NewGuid(), "Acme Group", "https://acme-group.com");
+        var acmeCorp = new Company(Guid.NewGuid(), "Acme Corp", "https://acme-corp.com");
+        var repository = new FakeCompanyRepository();
+        repository.Companies.Add(acmeGroup);
+        repository.Companies.Add(acmeCorp);
+        var service = CreateService(repository);
+
+        var results = await service.SearchCompaniesAsync("acme");
+
+        Assert.Equal(2, results.Count);
+        Assert.Equal(acmeCorp, results[0]);
+        Assert.Equal(acmeGroup, results[1]);
+    }
+
+    [Fact]
+    public async Task SearchCompaniesAsync_NoMatches_ReturnsEmptyCollection()
+    {
+        var repository = new FakeCompanyRepository();
+        repository.Companies.Add(new Company(Guid.NewGuid(), "Acme Corp", "https://acme.com"));
+        var service = CreateService(repository);
+
+        var results = await service.SearchCompaniesAsync("nonexistent");
+
+        Assert.Empty(results);
+    }
+
+    private static CompanyService CreateService(ICompanyRepository repository) =>
+        new(
+            new StubCompanyValidator(CompanyValidationResult.Success()),
+            new StubCompanyRelevanceEvaluator(CompanyRelevanceResult.Relevant(100)),
+            repository);
+
     private sealed class StubCompanyValidator : ICompanyValidator
     {
         private readonly CompanyValidationResult _result;

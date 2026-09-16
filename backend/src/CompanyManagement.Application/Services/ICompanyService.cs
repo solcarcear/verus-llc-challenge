@@ -9,4 +9,6 @@ public interface ICompanyService
     Task<IReadOnlyList<Company>> GetAllCompaniesAsync(CancellationToken cancellationToken = default);
 
     Task<Company?> GetCompanyByIdAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<Company>> SearchCompaniesAsync(string? query, CancellationToken cancellationToken = default);
 }

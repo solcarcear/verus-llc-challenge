@@ -117,4 +117,75 @@ public class CompaniesControllerTests
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
+
+    [Fact]
+    public async Task GetCompanies_WithSearchQuery_ReturnsMatchingCompanies()
+    {
+        using var factory = new WebApplicationFactory<Program>();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/companies", new CreateCompanyRequest("Microsoft Corporation", "https://microsoft.com"));
+        await client.PostAsJsonAsync("/api/companies", new CreateCompanyRequest("Acme Corp", "https://acme.com"));
+
+        var response = await client.GetAsync("/api/companies?search=micro");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var companies = await response.Content.ReadFromJsonAsync<List<CompanyResponse>>();
+        Assert.NotNull(companies);
+        Assert.Single(companies!);
+        Assert.Equal("Microsoft Corporation", companies![0].Name);
+    }
+
+    [Fact]
+    public async Task GetCompanies_WithDomainSearchQuery_ReturnsMatchingCompany()
+    {
+        using var factory = new WebApplicationFactory<Program>();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/companies", new CreateCompanyRequest("Acme Corp", "https://acme.com"));
+        await client.PostAsJsonAsync("/api/companies", new CreateCompanyRequest("Microsoft Corporation", "https://microsoft.com"));
+
+        var response = await client.GetAsync("/api/companies?search=acme.com");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var companies = await response.Content.ReadFromJsonAsync<List<CompanyResponse>>();
+        Assert.NotNull(companies);
+        Assert.Single(companies!);
+        Assert.Equal("Acme Corp", companies![0].Name);
+    }
+
+    [Fact]
+    public async Task GetCompanies_WithSearchQuery_ReturnsResultsInRelevanceOrder()
+    {
+        using var factory = new WebApplicationFactory<Program>();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/companies", new CreateCompanyRequest("Global Acme Partners", "https://globalacme.com"));
+        await client.PostAsJsonAsync("/api/companies", new CreateCompanyRequest("Acme", "https://acme.com"));
+
+        var response = await client.GetAsync("/api/companies?search=acme");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var companies = await response.Content.ReadFromJsonAsync<List<CompanyResponse>>();
+        Assert.NotNull(companies);
+        Assert.Equal(2, companies!.Count);
+        Assert.Equal("Acme", companies[0].Name);
+        Assert.Equal("Global Acme Partners", companies[1].Name);
+    }
+
+    [Fact]
+    public async Task GetCompanies_WithSearchQuery_ReturnsOkWithEmptyArray_WhenNothingMatches()
+    {
+        using var factory = new WebApplicationFactory<Program>();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/companies", new CreateCompanyRequest("Acme Corp", "https://acme.com"));
+
+        var response = await client.GetAsync("/api/companies?search=nonexistent");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var companies = await response.Content.ReadFromJsonAsync<List<CompanyResponse>>();
+        Assert.NotNull(companies);
+        Assert.Empty(companies!);
+    }
 }
