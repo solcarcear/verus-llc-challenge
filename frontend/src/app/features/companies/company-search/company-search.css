@@ -1,0 +1,27 @@
+.company-search {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 24rem;
+  margin: 0 auto;
+  padding: 0 1.5rem 1rem;
+}
+
+.company-search-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.company-search-controls input {
+  flex: 1;
+  padding: 0.5rem;
+  font-size: 1rem;
+  border: 1px solid #767676;
+  border-radius: 4px;
+}
+
+.company-search-controls button {
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  cursor: pointer;
+}

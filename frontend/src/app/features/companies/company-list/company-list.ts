@@ -8,4 +8,5 @@ import { Company } from '../../../core/models/company.model';
 })
 export class CompanyList {
   readonly companies = input<readonly Company[]>([]);
+  readonly emptyMessage = input<string>('No companies have been added yet.');
 }

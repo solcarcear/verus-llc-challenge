@@ -1,5 +1,5 @@
 @if (companies().length === 0) {
-  <p class="empty-state">No companies have been added yet.</p>
+  <p class="empty-state">{{ emptyMessage() }}</p>
 } @else {
   <ul class="company-list">
     @for (company of companies(); track company.id) {

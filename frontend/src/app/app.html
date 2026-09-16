@@ -1,11 +1,18 @@
 <app-company-form (created)="onCompanyCreated($event)" />
 
+<app-company-search
+  (searchRequested)="onSearchRequested($event)"
+  (clearRequested)="onClearRequested()"
+/>
+
 @if (loading()) {
   <p class="load-status">Loading companies…</p>
-} @else if (loadError()) {
-  <p class="load-status load-error">Companies could not be loaded. Please try again later.</p>
+} @else if (searching()) {
+  <p class="load-status">Searching…</p>
+} @else if (errorMessage(); as message) {
+  <p class="load-status load-error">{{ message }}</p>
 } @else {
-  <app-company-list [companies]="companies()" />
+  <app-company-list [companies]="companies()" [emptyMessage]="emptyMessage()" />
 }
 
 <router-outlet />

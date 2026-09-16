@@ -1,0 +1,13 @@
+<form class="company-search" [formGroup]="form" (ngSubmit)="onSubmit()">
+  <label for="company-search-input">Search companies</label>
+  <div class="company-search-controls">
+    <input
+      id="company-search-input"
+      type="search"
+      formControlName="query"
+      placeholder="Search by name or website"
+    />
+    <button type="submit">Search</button>
+    <button type="button" (click)="onClear()">Clear</button>
+  </div>
+</form>

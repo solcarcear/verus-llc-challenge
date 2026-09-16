@@ -42,6 +42,14 @@ describe('CompanyList', () => {
     expect(link?.getAttribute('rel')).toBe('noopener noreferrer');
   });
 
+  it('renders a custom empty message when provided', () => {
+    fixture.componentRef.setInput('emptyMessage', 'No companies found for "micro".');
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('No companies found for "micro".');
+  });
+
   it('renders multiple companies', () => {
     const companies: Company[] = [
       { id: '1', name: 'Acme Corp', websiteUrl: 'https://acme.com' },
