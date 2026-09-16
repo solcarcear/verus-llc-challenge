@@ -140,4 +140,25 @@ describe('CompanyForm', () => {
 
     expect(component['genericErrorMessage']()).toBe('Something went wrong. Please try again later.');
   });
+
+  it('clears the stale backend error once the user starts correcting the form', () => {
+    const subject = new Subject<Company>();
+    createSpy.mockReturnValue(subject);
+    setValue(validName, validWebsite);
+    submit();
+
+    subject.error(
+      new HttpErrorResponse({
+        status: 400,
+        error: { message: 'Company validation failed.', errors: ['Company name is required.'] },
+      }),
+    );
+    fixture.detectChanges();
+    expect(component['backendErrors']()).not.toBeNull();
+
+    component['form'].controls.name.setValue('Acme Updated');
+    fixture.detectChanges();
+
+    expect(component['backendErrors']()).toBeNull();
+  });
 });

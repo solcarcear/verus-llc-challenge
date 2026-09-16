@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, output, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   AbstractControl,
   FormControl,
@@ -61,6 +62,13 @@ export class CompanyForm {
       validators: [Validators.required, httpUrlValidator],
     }),
   });
+
+  constructor() {
+    this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
+      this.genericErrorMessage.set(null);
+      this.backendErrors.set(null);
+    });
+  }
 
   protected showError(controlName: keyof CompanyFormControls): boolean {
     const control = this.form.controls[controlName];

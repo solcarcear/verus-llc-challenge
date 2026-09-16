@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { DebugElement } from '@angular/core';
+import { DebugElement, Type } from '@angular/core';
+import { By } from '@angular/platform-browser';
 import { Subject } from 'rxjs';
 import { App } from './app';
 import { CompanyForm } from './features/companies/company-form/company-form';
@@ -17,10 +18,8 @@ describe('App', () => {
     { id: '2', name: 'Globex', websiteUrl: 'https://globex.com' },
   ];
 
-  function findComponent<T>(type: new (...args: never[]) => T): DebugElement {
-    return fixture.debugElement.children.find(
-      (child) => child.componentInstance instanceof type,
-    )!;
+  function findComponent<T>(type: Type<T>): DebugElement {
+    return fixture.debugElement.query(By.directive(type));
   }
 
   beforeEach(async () => {
