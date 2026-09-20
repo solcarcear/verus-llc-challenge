@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { CompanyForm } from './features/companies/company-form/company-form';
 import { CompanyList } from './features/companies/company-list/company-list';
@@ -12,7 +12,7 @@ import { Company } from './core/models/company.model';
   styleUrl: './app.css',
   templateUrl: './app.html',
 })
-export class App implements OnInit {
+export class App {
   private readonly companyService = inject(CompanyService);
   private inFlightSearchQuery: string | null = null;
 
@@ -21,15 +21,12 @@ export class App implements OnInit {
   protected readonly searching = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly activeSearchQuery = signal<string | null>(null);
+  protected readonly hasFetched = signal(false);
 
   protected readonly emptyMessage = computed(() => {
     const query = this.activeSearchQuery();
     return query ? `No companies found for "${query}".` : 'No companies have been added yet.';
   });
-
-  ngOnInit(): void {
-    this.loadCompanies();
-  }
 
   protected onCompanyCreated(company: Company): void {
     if (this.activeSearchQuery()) {
@@ -38,6 +35,7 @@ export class App implements OnInit {
       return;
     }
 
+    this.hasFetched.set(true);
     this.companies.update((current) => [...current, company]);
   }
 
@@ -54,6 +52,7 @@ export class App implements OnInit {
       next: (results) => {
         this.companies.set(results);
         this.activeSearchQuery.set(query);
+        this.hasFetched.set(true);
         this.searching.set(false);
         this.inFlightSearchQuery = null;
       },
@@ -71,13 +70,14 @@ export class App implements OnInit {
     this.loadCompanies();
   }
 
-  private loadCompanies(): void {
+  protected loadCompanies(): void {
     this.loading.set(true);
     this.errorMessage.set(null);
 
     this.companyService.getAll().subscribe({
       next: (companies) => {
         this.companies.set(companies);
+        this.hasFetched.set(true);
         this.loading.set(false);
       },
       error: () => {

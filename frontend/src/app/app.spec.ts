@@ -22,6 +22,14 @@ describe('App', () => {
     return fixture.debugElement.query(By.directive(type));
   }
 
+  function triggerLoad(): void {
+    const loadButton = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+      '.initial-state button',
+    );
+    loadButton?.click();
+    fixture.detectChanges();
+  }
+
   beforeEach(async () => {
     getAllSpy = vi.fn();
     searchSpy = vi.fn();
@@ -36,10 +44,24 @@ describe('App', () => {
     fixture = TestBed.createComponent(App);
   });
 
-  it('calls CompanyService.getAll on initialization', () => {
+  it('does not call CompanyService.getAll automatically on initialization', () => {
+    fixture.detectChanges();
+
+    expect(getAllSpy).not.toHaveBeenCalled();
+  });
+
+  it('prompts the user to load companies before any data has been fetched', () => {
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Company list not loaded yet.');
+  });
+
+  it('calls CompanyService.getAll when the user requests to load companies', () => {
     getAllSpy.mockReturnValue(new Subject<Company[]>());
 
     fixture.detectChanges();
+    triggerLoad();
 
     expect(getAllSpy).toHaveBeenCalledTimes(1);
   });
@@ -49,6 +71,7 @@ describe('App', () => {
     getAllSpy.mockReturnValue(subject);
 
     fixture.detectChanges();
+    triggerLoad();
     subject.next(companies);
     fixture.detectChanges();
 
@@ -61,6 +84,7 @@ describe('App', () => {
     getAllSpy.mockReturnValue(new Subject<Company[]>());
 
     fixture.detectChanges();
+    triggerLoad();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Loading companies');
@@ -71,6 +95,7 @@ describe('App', () => {
     getAllSpy.mockReturnValue(subject);
 
     fixture.detectChanges();
+    triggerLoad();
     subject.error(new Error('network down'));
     fixture.detectChanges();
 
@@ -84,6 +109,7 @@ describe('App', () => {
     getAllSpy.mockReturnValue(subject);
 
     fixture.detectChanges();
+    triggerLoad();
     subject.next([companies[0]]);
     fixture.detectChanges();
 
@@ -115,6 +141,7 @@ describe('App', () => {
       const initialLoad = new Subject<Company[]>();
       getAllSpy.mockReturnValue(initialLoad);
       fixture.detectChanges();
+      triggerLoad();
       initialLoad.next(companies);
       fixture.detectChanges();
     });
