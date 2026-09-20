@@ -94,13 +94,11 @@ Prerequisites:
 
 ### Backend
 
-```bash
-cd backend
-dotnet restore
-dotnet run --project src/CompanyManagement.Api
-```
+The backend persists data in SQL Server (via EF Core), which runs in Docker and requires a local
+`.env` file with connection settings. See [`backend/INSTRUCTIONS.md`](backend/INSTRUCTIONS.md) for
+the full setup and run instructions.
 
-The API is available at:
+Once running, the API is available at:
 
 - `http://localhost:5000`
 - `https://localhost:7000`

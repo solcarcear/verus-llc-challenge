@@ -1,5 +1,3 @@
-using Microsoft.AspNetCore.Mvc.Testing;
-
 namespace CompanyManagement.ApiTests;
 
 public class CorsPolicyTests
@@ -7,7 +5,7 @@ public class CorsPolicyTests
     [Fact]
     public async Task PreflightRequest_FromAngularDevOrigin_ToPostCompanies_IsAccepted()
     {
-        using var factory = new WebApplicationFactory<Program>();
+        using var factory = new TestWebApplicationFactory();
         using var client = factory.CreateClient();
 
         var request = new HttpRequestMessage(HttpMethod.Options, "/api/companies");

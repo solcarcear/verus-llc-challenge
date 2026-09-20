@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using CompanyManagement.Api.Contracts;
-using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace CompanyManagement.ApiTests;
 
@@ -10,7 +9,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task PostCompany_ValidAndRelevantRequest_ReturnsCreatedWithLocationAndBody()
     {
-        using var factory = new WebApplicationFactory<Program>();
+        using var factory = new TestWebApplicationFactory();
         using var client = factory.CreateClient();
 
         var response = await client.PostAsJsonAsync(
@@ -31,7 +30,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task PostCompany_InvalidRequest_ReturnsBadRequest()
     {
-        using var factory = new WebApplicationFactory<Program>();
+        using var factory = new TestWebApplicationFactory();
         using var client = factory.CreateClient();
 
         var response = await client.PostAsJsonAsync(
@@ -44,7 +43,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task PostCompany_IrrelevantCompanyAndWebsite_ReturnsBadRequest()
     {
-        using var factory = new WebApplicationFactory<Program>();
+        using var factory = new TestWebApplicationFactory();
         using var client = factory.CreateClient();
 
         var response = await client.PostAsJsonAsync(
@@ -57,7 +56,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task GetAllCompanies_WhenNoneExist_ReturnsEmptyArray()
     {
-        using var factory = new WebApplicationFactory<Program>();
+        using var factory = new TestWebApplicationFactory();
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/api/companies");
@@ -71,7 +70,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task GetAllCompanies_ReturnsPreviouslyCreatedCompanies()
     {
-        using var factory = new WebApplicationFactory<Program>();
+        using var factory = new TestWebApplicationFactory();
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync(
@@ -90,7 +89,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task GetCompanyById_ExistingCompany_ReturnsOkWithCompany()
     {
-        using var factory = new WebApplicationFactory<Program>();
+        using var factory = new TestWebApplicationFactory();
         using var client = factory.CreateClient();
 
         var createResponse = await client.PostAsJsonAsync(
@@ -110,7 +109,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task GetCompanyById_UnknownId_ReturnsNotFound()
     {
-        using var factory = new WebApplicationFactory<Program>();
+        using var factory = new TestWebApplicationFactory();
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync($"/api/companies/{Guid.NewGuid()}");
@@ -121,7 +120,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task GetCompanies_WithSearchQuery_ReturnsMatchingCompanies()
     {
-        using var factory = new WebApplicationFactory<Program>();
+        using var factory = new TestWebApplicationFactory();
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/companies", new CreateCompanyRequest("Microsoft Corporation", "https://microsoft.com"));
@@ -139,7 +138,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task GetCompanies_WithDomainSearchQuery_ReturnsMatchingCompany()
     {
-        using var factory = new WebApplicationFactory<Program>();
+        using var factory = new TestWebApplicationFactory();
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/companies", new CreateCompanyRequest("Acme Corp", "https://acme.com"));
@@ -157,7 +156,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task GetCompanies_WithSearchQuery_ReturnsResultsInRelevanceOrder()
     {
-        using var factory = new WebApplicationFactory<Program>();
+        using var factory = new TestWebApplicationFactory();
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/companies", new CreateCompanyRequest("Global Acme Partners", "https://globalacme.com"));
@@ -176,7 +175,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task GetCompanies_WithSearchQuery_ReturnsOkWithEmptyArray_WhenNothingMatches()
     {
-        using var factory = new WebApplicationFactory<Program>();
+        using var factory = new TestWebApplicationFactory();
         using var client = factory.CreateClient();
 
         await client.PostAsJsonAsync("/api/companies", new CreateCompanyRequest("Acme Corp", "https://acme.com"));

@@ -1,0 +1,134 @@
+.
+├── .env
+├── .env.example
+├── .gitignore
+├── README.md
+├── backend
+│   ├── CLAUDE.md
+│   ├── CompanyManagement.sln
+│   ├── INSTRUCTIONS.md
+│   ├── src
+│   │   ├── CompanyManagement.Api
+│   │   │   ├── CompanyManagement.Api.csproj
+│   │   │   ├── CompanyManagement.Api.http
+│   │   │   ├── Contracts
+│   │   │   │   ├── ApiErrorResponse.cs
+│   │   │   │   ├── CompanyResponse.cs
+│   │   │   │   └── CreateCompanyRequest.cs
+│   │   │   ├── Controllers
+│   │   │   │   └── CompaniesController.cs
+│   │   │   ├── ExceptionHandling
+│   │   │   │   └── GlobalExceptionHandler.cs
+│   │   │   ├── Program.cs
+│   │   │   ├── Properties
+│   │   │   │   └── launchSettings.json
+│   │   │   ├── appsettings.Development.json
+│   │   │   └── appsettings.json
+│   │   ├── CompanyManagement.Application
+│   │   │   ├── CompanyManagement.Application.csproj
+│   │   │   ├── Persistence
+│   │   │   │   └── ICompanyRepository.cs
+│   │   │   ├── Relevance
+│   │   │   │   ├── CompanyRelevanceEvaluator.cs
+│   │   │   │   ├── CompanyRelevanceResult.cs
+│   │   │   │   └── ICompanyRelevanceEvaluator.cs
+│   │   │   ├── Services
+│   │   │   │   ├── CompanyService.cs
+│   │   │   │   ├── CreateCompanyResult.cs
+│   │   │   │   └── ICompanyService.cs
+│   │   │   └── Validation
+│   │   │       ├── CompanyValidationResult.cs
+│   │   │       ├── CompanyValidator.cs
+│   │   │       └── ICompanyValidator.cs
+│   │   ├── CompanyManagement.Domain
+│   │   │   ├── Company.cs
+│   │   │   └── CompanyManagement.Domain.csproj
+│   │   └── CompanyManagement.Infrastructure
+│   │       ├── CompanyManagement.Infrastructure.csproj
+│   │       └── Persistence
+│   │           ├── CompanyManagementDbContext.cs
+│   │           ├── EfCompanyRepository.cs
+│   │           ├── InMemoryCompanyRepository.cs
+│   │           └── Migrations
+│   │               ├── 20260919204147_InitialCreate.Designer.cs
+│   │               ├── 20260919204147_InitialCreate.cs
+│   │               └── CompanyManagementDbContextModelSnapshot.cs
+│   └── tests
+│       ├── CompanyManagement.ApiTests
+│       │   ├── CompaniesControllerTests.cs
+│       │   ├── CompanyManagement.ApiTests.csproj
+│       │   ├── CorsPolicyTests.cs
+│       │   ├── GlobalUsings.cs
+│       │   └── TestWebApplicationFactory.cs
+│       └── CompanyManagement.UnitTests
+│           ├── CompanyManagement.UnitTests.csproj
+│           ├── Domain
+│           │   └── CompanyTests.cs
+│           ├── GlobalUsings.cs
+│           ├── Persistence
+│           │   ├── EfCompanyRepositoryTests.cs
+│           │   └── InMemoryCompanyRepositoryTests.cs
+│           ├── Relevance
+│           │   └── CompanyRelevanceEvaluatorTests.cs
+│           ├── Services
+│           │   └── CompanyServiceTests.cs
+│           └── Validation
+│               └── CompanyValidatorTests.cs
+├── docker-compose.yml
+├── frontend
+│   ├── .editorconfig
+│   ├── .gitignore
+│   ├── .prettierrc
+│   ├── .vscode
+│   │   ├── extensions.json
+│   │   ├── launch.json
+│   │   └── tasks.json
+│   ├── CLAUDE.md
+│   ├── README.md
+│   ├── angular.json
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── public
+│   │   └── favicon.ico
+│   ├── src
+│   │   ├── app
+│   │   │   ├── app.config.ts
+│   │   │   ├── app.css
+│   │   │   ├── app.html
+│   │   │   ├── app.routes.ts
+│   │   │   ├── app.spec.ts
+│   │   │   ├── app.ts
+│   │   │   ├── core
+│   │   │   │   ├── config
+│   │   │   │   │   └── api.config.ts
+│   │   │   │   ├── models
+│   │   │   │   │   └── company.model.ts
+│   │   │   │   └── services
+│   │   │   │       ├── company.service.spec.ts
+│   │   │   │       └── company.service.ts
+│   │   │   └── features
+│   │   │       └── companies
+│   │   │           ├── company-form
+│   │   │           │   ├── company-form.css
+│   │   │           │   ├── company-form.html
+│   │   │           │   ├── company-form.spec.ts
+│   │   │           │   └── company-form.ts
+│   │   │           ├── company-list
+│   │   │           │   ├── company-list.css
+│   │   │           │   ├── company-list.html
+│   │   │           │   ├── company-list.spec.ts
+│   │   │           │   └── company-list.ts
+│   │   │           └── company-search
+│   │   │               ├── company-search.css
+│   │   │               ├── company-search.html
+│   │   │               ├── company-search.spec.ts
+│   │   │               └── company-search.ts
+│   │   ├── index.html
+│   │   ├── main.ts
+│   │   └── styles.css
+│   ├── tsconfig.app.json
+│   ├── tsconfig.json
+│   └── tsconfig.spec.json
+└── project-structure.txt
+
+39 directories, 93 files
