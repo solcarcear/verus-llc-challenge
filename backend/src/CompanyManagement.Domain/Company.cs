@@ -6,6 +6,13 @@ public sealed class Company : IEquatable<Company>
     public string Name { get; }
     public string WebsiteUrl { get; }
 
+    // Get-only collections backed by a real list: EF Core populates them in
+    // place (via Include/reflection) rather than replacing the property, so
+    // these stay consistent with the rest of Company's immutability even
+    // though nothing outside EF ever assigns to them directly.
+    public ICollection<Contact> Contacts { get; } = new List<Contact>();
+    public ICollection<Order> Orders { get; } = new List<Order>();
+
     public Company(Guid id, string name, string websiteUrl)
     {
         Id = id;

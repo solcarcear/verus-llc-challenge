@@ -4,8 +4,8 @@ using Microsoft.Extensions.Logging;
 namespace CompanyManagement.Infrastructure.Persistence.Seed;
 
 // Development-only bootstrap data. Deliberately bypasses ICompanyRepository
-// and writes through the DbContext directly so the ~5,000 rows can be
-// inserted in a handful of batches instead of one round trip per company.
+// and writes through the DbContext directly so the tens of thousands of rows
+// can be inserted in batches instead of one round trip per record.
 public sealed class CompanyDevelopmentSeeder
 {
     private const int BatchSize = 500;
@@ -29,6 +29,9 @@ public sealed class CompanyDevelopmentSeeder
         // Idempotency check: look for the first seed record's deterministic Id
         // rather than Companies.Any(), so companies a developer already
         // created by hand before running the seeder don't cause it to skip.
+        // Contacts and Orders are seeded in the same guarded run as Companies,
+        // so this one check covers all three - there's no scenario where
+        // Companies are seeded but Contacts/Orders aren't, or vice versa.
         var markerId = CompanySeedDataGenerator.SeedId(0);
         var alreadySeeded = await _dbContext.Companies
             .AsNoTracking()
@@ -36,12 +39,11 @@ public sealed class CompanyDevelopmentSeeder
 
         if (alreadySeeded)
         {
-            _logger.LogInformation("Development seed data already present; skipping company seeding.");
+            _logger.LogInformation("Development seed data already present; skipping seeding.");
             return;
         }
 
         var companies = CompanySeedDataGenerator.Generate(companyCount);
-
         foreach (var batch in companies.Chunk(BatchSize))
         {
             await _dbContext.Companies.AddRangeAsync(batch, cancellationToken);
@@ -49,5 +51,23 @@ public sealed class CompanyDevelopmentSeeder
         }
 
         _logger.LogInformation("Seeded {Count} development companies.", companies.Count);
+
+        var contacts = ContactSeedDataGenerator.Generate(companies);
+        foreach (var batch in contacts.Chunk(BatchSize))
+        {
+            await _dbContext.Contacts.AddRangeAsync(batch, cancellationToken);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        _logger.LogInformation("Seeded {Count} development contacts.", contacts.Count);
+
+        var orders = OrderSeedDataGenerator.Generate(companies);
+        foreach (var batch in orders.Chunk(BatchSize))
+        {
+            await _dbContext.Orders.AddRangeAsync(batch, cancellationToken);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        _logger.LogInformation("Seeded {Count} development orders.", orders.Count);
     }
 }

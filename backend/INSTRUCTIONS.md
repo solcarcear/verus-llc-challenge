@@ -111,8 +111,9 @@ too. Running it explicitly here is a useful way to catch a bad connection string
 that isn't ready yet, before starting the API.
 
 No manual step is required for the `AddCompanyNameIdIndex` migration (adds a `(Name, Id)` index
-backing paginated `GET /api/companies` listing) — it applies the same way as any other pending
-migration, via either of the two methods above.
+backing paginated `GET /api/companies` listing) or the `AddContactAndOrderEntities` migration (adds
+the `Contacts` and `Orders` tables, their foreign keys, and their indexes — see section 6 below) —
+both apply the same way as any other pending migration, via either of the two methods above.
 
 Start the API:
 
@@ -145,8 +146,8 @@ dotnet ef migrations add <MigrationName> \
 ## 6. Development seed data
 
 In the `Development` environment only, the API automatically seeds the database with **~5,000
-realistic, fictional companies** the first time it starts against an empty/unseeded database.
-This is controlled by `appsettings.Development.json`:
+companies, ~25,000 contacts, and ~75,000 orders** the first time it starts against an
+empty/unseeded database. This is controlled by `appsettings.Development.json`:
 
 ```json
 "SeedData": {
@@ -155,35 +156,66 @@ This is controlled by `appsettings.Development.json`:
 }
 ```
 
+`CompanyCount` is the only configurable knob — the number of Contacts and Orders per company is
+randomized (0–10 contacts, 0–30 orders) rather than fixed, so it scales automatically with
+whatever `CompanyCount` you set instead of needing its own setting.
+
 What to expect:
 
-- **First run**: `dotnet run` applies migrations, then seeds ~5,000 companies. You'll see
-  `Seeded 5000 development companies.` in the console output.
-- **Every run after that**: seeding is skipped — you'll see
-  `Development seed data already present; skipping company seeding.` instead. Restarting the API
-  (any number of times) will **not** create more companies.
+- **First run**: `dotnet run` applies migrations, then seeds companies, then contacts, then
+  orders (in that order, since contacts/orders need real company IDs to attach to). You'll see
+  three log lines: `Seeded 5000 development companies.`, `Seeded ~25000 development contacts.`,
+  `Seeded ~75000 development orders.` All of this ran in well under a minute against the real
+  SQL Server container during development of this feature.
+- **Every run after that**: seeding is skipped entirely — you'll see
+  `Development seed data already present; skipping seeding.` instead. Restarting the API (any
+  number of times) will **not** create more rows. The check only looks for the first deterministic
+  Company seed ID, so it covers Companies, Contacts, and Orders together — there's no scenario
+  where only some of the three get seeded.
 - **Any companies you create by hand** (via Swagger, `curl`, or the frontend) are never deleted,
   overwritten, or duplicated by the seeder, before or after seeding runs.
 - This only runs when `ASPNETCORE_ENVIRONMENT=Development` (the default for `dotnet run`).
   `appsettings.json` — used by every other environment, including Production — has no `SeedData`
   section, so seeding is disabled there by default even without the environment check.
 
-How idempotency works: seeded companies get deterministic IDs (every one starts with
-`53454544-0000-0000-...`, ASCII "SEED" in hex) instead of random GUIDs. On startup, the seeder
-checks for the presence of just the *first* deterministic seed ID — not `Companies.Any()` — so it
+How idempotency works: seeded rows get deterministic IDs instead of random GUIDs — Companies start
+with `53454544-0000-0000-...` (ASCII "SEED" in hex), Contacts with `434f4e54-0000-0000-...`
+("CONT"), Orders with `4f524452-0000-0000-...` ("ORDR"). On startup, the seeder checks for the
+presence of just the *first* deterministic Company seed ID — not `Companies.Any()` — so it
 correctly recognizes "already seeded" even if you'd already created a few companies of your own
 beforehand, and never touches those companies.
 
-The generated data is created programmatically (combining realistic name/industry word components
-and domains — see `CompanySeedDataGenerator` in
-`src/CompanyManagement.Infrastructure/Persistence/Seed/`), not hardcoded, and deliberately includes
-companies whose name is an exact match, a partial match, a loose/token-level match, or **not**
-relevant to their website, so `CompanyRelevanceEvaluator` and search/filtering can be exercised
-against realistic variety. Generation is deterministic (fixed per-record seed), so re-running the
-generator against an empty database always produces the same dataset.
+The generated data is created programmatically, not hardcoded — see
+`src/CompanyManagement.Infrastructure/Persistence/Seed/`:
+- `CompanySeedDataGenerator` — realistic name/industry word components and domains, deliberately
+  producing companies whose name is an exact match, a partial match, a loose/token-level match, or
+  **not** relevant to their website, so `CompanyRelevanceEvaluator` and search/filtering can be
+  exercised against realistic variety.
+- `ContactSeedDataGenerator` — 0–10 contacts per company (so a meaningful number of companies land
+  on exactly 0), each independently ~80% active, so some companies end up with contacts that are
+  *all* inactive purely by chance. Emails are unique via a strictly incrementing counter, not
+  random text, since `Contacts.Email` has a unique index.
+- `OrderSeedDataGenerator` — 0–30 orders per company (same reasoning: some companies land on 0),
+  status distributed across all four values (skewed toward `Completed`), amounts and dates varied.
+  `OrderNumber`s are unique the same way emails are.
 
-No new EF Core migration was needed for this — seeding only inserts rows into the existing
-`Companies` table (`Id`, `Name`, `WebsiteUrl`), which the `InitialCreate` migration already created.
+All three generators are deterministic (fixed per-record seed derived from each company's index),
+so re-running them against an empty database always produces the same dataset. See
+[`SQL-PRACTICE.md`](../SQL-PRACTICE.md) at the repo root for ~20 SQL/EF Core/indexing exercises
+built against exactly this seeded data, with real, verified answers and execution plans.
+
+This feature needed a new EF Core migration, `AddContactAndOrderEntities` — it creates the
+`Contacts` and `Orders` tables, their foreign keys to `Companies` (`ON DELETE CASCADE`), and 5
+indexes (see the table below). It applies automatically like any other migration; no manual step
+is required (see section 5 above).
+
+| Entity  | Index                            | Unique | Main query scenario |
+|---------|-----------------------------------|--------|----------------------|
+| Contact | `(CompanyId, IsActive)`           | No     | Contacts for a company, and active contacts for a company |
+| Contact | `Email`                           | Yes    | Contact lookup / uniqueness |
+| Order   | `(CompanyId, CreatedAt)`          | No     | Orders for a company, and latest orders for a company |
+| Order   | `(Status, CreatedAt)`             | No     | Recent orders in a given status |
+| Order   | `OrderNumber`                     | Yes    | Order lookup / uniqueness |
 
 ### Inspect the seeded data in SSMS / sqlcmd
 
@@ -191,19 +223,25 @@ Connect to `localhost,1433` with user `sa` and your `SQL_SERVER_PASSWORD`, datab
 `CompanyManagement`, then:
 
 ```sql
--- Total companies (should be ~5,000, plus any you created yourself)
-SELECT COUNT(*) AS TotalCompanies FROM Companies;
+-- Row counts across all three tables
+SELECT 'Companies' AS TableName, COUNT(*) AS Total FROM Companies
+UNION ALL SELECT 'Contacts', COUNT(*) FROM Contacts
+UNION ALL SELECT 'Orders', COUNT(*) FROM Orders;
 
--- How many of those are seed-generated vs. user-created
+-- How many companies are seed-generated vs. user-created
 SELECT COUNT(*) AS SeedGenerated
 FROM Companies
 WHERE CONVERT(varchar(36), Id) LIKE '53454544-0000-0000-%';
 
--- Sample a handful of rows
+-- Sample a handful of companies
 SELECT TOP 20 Id, Name, WebsiteUrl FROM Companies ORDER BY NEWID();
 
 -- Companies matching a specific industry/keyword
 SELECT Id, Name, WebsiteUrl FROM Companies WHERE Name LIKE '%Robotics%';
+
+-- Companies with no contacts / no orders / only-inactive contacts (see SQL-PRACTICE.md)
+SELECT COUNT(*) FROM Companies c WHERE NOT EXISTS (SELECT 1 FROM Contacts x WHERE x.CompanyId = c.Id);
+SELECT COUNT(*) FROM Companies c WHERE NOT EXISTS (SELECT 1 FROM Orders x WHERE x.CompanyId = c.Id);
 ```
 
 ### Resetting/regenerating the seed dataset
@@ -214,12 +252,17 @@ volume and everything in it (including any of your own data), which is almost ne
 for this purpose.
 
 To regenerate just the seed dataset while keeping the volume and any companies you created by
-hand, delete only the seed-marked rows (identifiable by the `53454544-0000-0000-...` Id prefix)
-and restart the API:
+hand, delete only the seed-marked companies (identifiable by the `53454544-0000-0000-...` Id
+prefix) and restart the API:
 
 ```sql
 DELETE FROM Companies WHERE CONVERT(varchar(36), Id) LIKE '53454544-0000-0000-%';
 ```
+
+This alone is enough — every Contact/Order has a required foreign key to a Company configured with
+`ON DELETE CASCADE`, so deleting a seeded company automatically deletes its seeded contacts and
+orders too. There's currently no way to create a Contact or Order except through the seeder, so
+this one statement clears all seeded data across all three tables.
 
 ```bash
 dotnet run --project src/CompanyManagement.Api
@@ -227,7 +270,10 @@ dotnet run --project src/CompanyManagement.Api
 
 If you genuinely want to wipe everything (seed data *and* anything you created) and start over,
 that's a deliberate, explicit choice — do it yourself with `docker compose down -v` (removing the
-volume) or `TRUNCATE TABLE Companies;`, understanding it is destructive and not reversible.
+volume), understanding it is destructive and not reversible. `TRUNCATE TABLE Companies;` will no
+longer work on its own now that `Contacts` and `Orders` have foreign keys to it — SQL Server
+refuses to `TRUNCATE` a table referenced by another table. `DELETE FROM Companies;` works instead
+(cascading to Contacts/Orders), just slower than a truncate on a very large table.
 
 ## 7. Run the tests
 
