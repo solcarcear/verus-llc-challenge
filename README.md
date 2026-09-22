@@ -120,12 +120,13 @@ The Angular app runs at `http://localhost:4200` and is configured to call the ba
 | Method | Endpoint | Description | Success |
 |--------|----------|-------------|---------|
 | POST | `/api/companies` | Create a company | `201 Created` |
-| GET | `/api/companies` | List all companies | `200 OK` |
-| GET | `/api/companies?search={query}` | Search companies by name or website, ordered by relevance | `200 OK` |
+| GET | `/api/companies?pageNumber={n}&pageSize={n}` | List companies, paginated (defaults `1`/`20`, max page size `100`) | `200 OK` |
+| GET | `/api/companies?search={query}` | Search companies by name or website, ordered by relevance (returns the full match set, unpaginated) | `200 OK` |
 | GET | `/api/companies/{id}` | Retrieve a company by ID | `200 OK` |
 
 - `POST /api/companies` returns `400 Bad Request` with an `ApiErrorResponse` (`message` + `errors[]`) if structural validation fails or if the company name is not relevant to the website.
 - `GET /api/companies/{id}` returns `404 Not Found` if the ID does not exist.
+- The paginated `GET /api/companies` response shape is `{ items, pageNumber, pageSize, totalCount, totalPages }`, ordered by `Name` then `Id` for deterministic paging.
 
 Example create request:
 

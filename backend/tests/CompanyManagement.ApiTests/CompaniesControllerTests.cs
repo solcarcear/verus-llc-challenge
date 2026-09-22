@@ -54,7 +54,7 @@ public class CompaniesControllerTests
     }
 
     [Fact]
-    public async Task GetAllCompanies_WhenNoneExist_ReturnsEmptyArray()
+    public async Task GetAllCompanies_WhenNoneExist_ReturnsEmptyPage()
     {
         using var factory = new TestWebApplicationFactory();
         using var client = factory.CreateClient();
@@ -62,9 +62,11 @@ public class CompaniesControllerTests
         var response = await client.GetAsync("/api/companies");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var companies = await response.Content.ReadFromJsonAsync<List<CompanyResponse>>();
-        Assert.NotNull(companies);
-        Assert.Empty(companies!);
+        var page = await response.Content.ReadFromJsonAsync<PagedResponse<CompanyResponse>>();
+        Assert.NotNull(page);
+        Assert.Empty(page!.Items);
+        Assert.Equal(0, page.TotalCount);
+        Assert.Equal(0, page.TotalPages);
     }
 
     [Fact]
@@ -80,10 +82,106 @@ public class CompaniesControllerTests
         var response = await client.GetAsync("/api/companies");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var companies = await response.Content.ReadFromJsonAsync<List<CompanyResponse>>();
-        Assert.NotNull(companies);
-        Assert.Single(companies!);
-        Assert.Equal("Acme Corp", companies![0].Name);
+        var page = await response.Content.ReadFromJsonAsync<PagedResponse<CompanyResponse>>();
+        Assert.NotNull(page);
+        Assert.Single(page!.Items);
+        Assert.Equal("Acme Corp", page.Items[0].Name);
+    }
+
+    [Fact]
+    public async Task GetAllCompanies_UsesDefaultPageNumberAndPageSize_WhenNotSpecified()
+    {
+        using var factory = new TestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/companies");
+
+        var page = await response.Content.ReadFromJsonAsync<PagedResponse<CompanyResponse>>();
+        Assert.Equal(1, page!.PageNumber);
+        Assert.Equal(20, page.PageSize);
+    }
+
+    [Fact]
+    public async Task GetAllCompanies_FirstPage_ReturnsExpectedNumberOfRecords()
+    {
+        using var factory = new TestWebApplicationFactory();
+        using var client = factory.CreateClient();
+        await CreateCompaniesAsync(client, count: 25);
+
+        var response = await client.GetAsync("/api/companies?pageNumber=1&pageSize=10");
+
+        var page = await response.Content.ReadFromJsonAsync<PagedResponse<CompanyResponse>>();
+        Assert.Equal(10, page!.Items.Count);
+        Assert.Equal(25, page.TotalCount);
+    }
+
+    [Fact]
+    public async Task GetAllCompanies_SecondPage_ReturnsDifferentRecordsThanFirstPage()
+    {
+        using var factory = new TestWebApplicationFactory();
+        using var client = factory.CreateClient();
+        await CreateCompaniesAsync(client, count: 25);
+
+        var firstPageResponse = await client.GetAsync("/api/companies?pageNumber=1&pageSize=10");
+        var secondPageResponse = await client.GetAsync("/api/companies?pageNumber=2&pageSize=10");
+
+        var firstPage = await firstPageResponse.Content.ReadFromJsonAsync<PagedResponse<CompanyResponse>>();
+        var secondPage = await secondPageResponse.Content.ReadFromJsonAsync<PagedResponse<CompanyResponse>>();
+
+        Assert.Equal(10, secondPage!.Items.Count);
+        var firstPageIds = firstPage!.Items.Select(c => c.Id).ToHashSet();
+        Assert.DoesNotContain(secondPage.Items, c => firstPageIds.Contains(c.Id));
+    }
+
+    [Fact]
+    public async Task GetAllCompanies_InvalidPageNumber_FallsBackToFirstPage()
+    {
+        using var factory = new TestWebApplicationFactory();
+        using var client = factory.CreateClient();
+        await CreateCompaniesAsync(client, count: 3);
+
+        var response = await client.GetAsync("/api/companies?pageNumber=0&pageSize=10");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var page = await response.Content.ReadFromJsonAsync<PagedResponse<CompanyResponse>>();
+        Assert.Equal(1, page!.PageNumber);
+        Assert.Equal(3, page.Items.Count);
+    }
+
+    [Fact]
+    public async Task GetAllCompanies_PageSizeAboveMaximum_IsCappedAtMaximum()
+    {
+        using var factory = new TestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/companies?pageSize=500");
+
+        var page = await response.Content.ReadFromJsonAsync<PagedResponse<CompanyResponse>>();
+        Assert.Equal(100, page!.PageSize);
+    }
+
+    [Fact]
+    public async Task GetAllCompanies_TotalPages_IsCalculatedFromTotalCountAndPageSize()
+    {
+        using var factory = new TestWebApplicationFactory();
+        using var client = factory.CreateClient();
+        await CreateCompaniesAsync(client, count: 25);
+
+        var response = await client.GetAsync("/api/companies?pageSize=10");
+
+        var page = await response.Content.ReadFromJsonAsync<PagedResponse<CompanyResponse>>();
+        Assert.Equal(25, page!.TotalCount);
+        Assert.Equal(3, page.TotalPages);
+    }
+
+    private static async Task CreateCompaniesAsync(HttpClient client, int count)
+    {
+        for (var i = 0; i < count; i++)
+        {
+            await client.PostAsJsonAsync(
+                "/api/companies",
+                new CreateCompanyRequest($"Acme{i} Corp", $"https://acme{i}.com"));
+        }
     }
 
     [Fact]

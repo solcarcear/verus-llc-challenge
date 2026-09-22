@@ -68,4 +68,73 @@ public class EfCompanyRepositoryTests
         Assert.Contains(companies, c => c.Id == first.Id && c.Name == first.Name);
         Assert.Contains(companies, c => c.Id == second.Id && c.Name == second.Name);
     }
+
+    [Fact]
+    public async Task GetPagedAsync_ReturnsRequestedPageSize_AndCorrectTotalCount()
+    {
+        var repository = CreateRepository();
+        foreach (var company in BuildCompanies(25))
+        {
+            await repository.AddAsync(company);
+        }
+
+        var (items, totalCount) = await repository.GetPagedAsync(pageNumber: 1, pageSize: 10);
+
+        Assert.Equal(10, items.Count);
+        Assert.Equal(25, totalCount);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SecondPage_ReturnsDifferentRecordsThanFirstPage()
+    {
+        var repository = CreateRepository();
+        foreach (var company in BuildCompanies(25))
+        {
+            await repository.AddAsync(company);
+        }
+
+        var (firstPage, _) = await repository.GetPagedAsync(pageNumber: 1, pageSize: 10);
+        var (secondPage, _) = await repository.GetPagedAsync(pageNumber: 2, pageSize: 10);
+
+        var firstPageIds = firstPage.Select(c => c.Id).ToHashSet();
+        Assert.DoesNotContain(secondPage, c => firstPageIds.Contains(c.Id));
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_OrdersByNameThenById_Deterministically()
+    {
+        var repository = CreateRepository();
+        var companies = BuildCompanies(5);
+        // Add in reverse to prove ordering comes from the query, not insertion order.
+        foreach (var company in companies.AsEnumerable().Reverse())
+        {
+            await repository.AddAsync(company);
+        }
+
+        var (firstCall, _) = await repository.GetPagedAsync(pageNumber: 1, pageSize: 5);
+        var (secondCall, _) = await repository.GetPagedAsync(pageNumber: 1, pageSize: 5);
+
+        Assert.Equal(firstCall.Select(c => c.Id), secondCall.Select(c => c.Id));
+        Assert.Equal(companies.OrderBy(c => c.Name, StringComparer.Ordinal).Select(c => c.Id), firstCall.Select(c => c.Id));
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_PageBeyondTotalCount_ReturnsEmptyItems_ButStillReportsTotalCount()
+    {
+        var repository = CreateRepository();
+        foreach (var company in BuildCompanies(3))
+        {
+            await repository.AddAsync(company);
+        }
+
+        var (items, totalCount) = await repository.GetPagedAsync(pageNumber: 5, pageSize: 10);
+
+        Assert.Empty(items);
+        Assert.Equal(3, totalCount);
+    }
+
+    private static List<Company> BuildCompanies(int count) =>
+        Enumerable.Range(0, count)
+            .Select(i => new Company(Guid.NewGuid(), $"Company {i:D2}", $"https://company{i}.com"))
+            .ToList();
 }

@@ -87,4 +87,31 @@ public class InMemoryCompanyRepositoryTests
             Assert.Contains(stored, c => c.Id == company.Id);
         }
     }
+
+    [Fact]
+    public async Task GetPagedAsync_ReturnsRequestedPageSize_AndCorrectTotalCount()
+    {
+        foreach (var company in Enumerable.Range(0, 25).Select(i => new Company(Guid.NewGuid(), $"Company {i:D2}", $"https://company{i}.com")))
+        {
+            await _repository.AddAsync(company);
+        }
+
+        var (items, totalCount) = await _repository.GetPagedAsync(pageNumber: 2, pageSize: 10);
+
+        Assert.Equal(10, items.Count);
+        Assert.Equal(25, totalCount);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_OrdersByNameThenById_Deterministically()
+    {
+        var first = new Company(Guid.NewGuid(), "Bravo", "https://bravo.com");
+        var second = new Company(Guid.NewGuid(), "Alpha", "https://alpha.com");
+        await _repository.AddAsync(first);
+        await _repository.AddAsync(second);
+
+        var (items, _) = await _repository.GetPagedAsync(pageNumber: 1, pageSize: 10);
+
+        Assert.Equal(new[] { second.Id, first.Id }, items.Select(c => c.Id));
+    }
 }

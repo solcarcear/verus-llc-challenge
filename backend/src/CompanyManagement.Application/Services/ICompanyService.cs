@@ -10,5 +10,10 @@ public interface ICompanyService
 
     Task<Company?> GetCompanyByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
+    Task<(IReadOnlyList<Company> Items, int TotalCount)> GetCompaniesPagedAsync(
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<Company>> SearchCompaniesAsync(string? query, CancellationToken cancellationToken = default);
 }

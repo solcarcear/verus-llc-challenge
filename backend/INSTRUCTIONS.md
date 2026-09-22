@@ -110,6 +110,10 @@ automatically on startup, so `dotnet run` alone creates/updates the `CompanyMana
 too. Running it explicitly here is a useful way to catch a bad connection string or a SQL Server
 that isn't ready yet, before starting the API.
 
+No manual step is required for the `AddCompanyNameIdIndex` migration (adds a `(Name, Id)` index
+backing paginated `GET /api/companies` listing) — it applies the same way as any other pending
+migration, via either of the two methods above.
+
 Start the API:
 
 ```bash

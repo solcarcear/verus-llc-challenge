@@ -34,4 +34,24 @@ public sealed class InMemoryCompanyRepository : ICompanyRepository
 
         return Task.FromResult(company);
     }
+
+    public Task<(IReadOnlyList<Company> Items, int TotalCount)> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var ordered = _companies.Values
+            .OrderBy(c => c.Name, StringComparer.Ordinal)
+            .ThenBy(c => c.Id)
+            .ToList();
+
+        IReadOnlyList<Company> page = ordered
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        return Task.FromResult((page, ordered.Count));
+    }
 }

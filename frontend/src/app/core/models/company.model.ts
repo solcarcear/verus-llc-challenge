@@ -13,3 +13,11 @@ export interface ApiErrorResponse {
   readonly message: string;
   readonly errors: readonly string[];
 }
+
+export interface PagedResult<T> {
+  readonly items: readonly T[];
+  readonly pageNumber: number;
+  readonly pageSize: number;
+  readonly totalCount: number;
+  readonly totalPages: number;
+}

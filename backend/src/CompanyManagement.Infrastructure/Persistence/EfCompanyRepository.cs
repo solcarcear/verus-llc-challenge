@@ -32,4 +32,26 @@ public sealed class EfCompanyRepository : ICompanyRepository
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
     }
+
+    public async Task<(IReadOnlyList<Company> Items, int TotalCount)> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Companies.AsNoTracking();
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        // OrderBy before Skip/Take is what makes pagination deterministic: SQL Server
+        // needs a defined order to translate Skip/Take into OFFSET/FETCH at all, and
+        // ThenBy(Id) breaks ties on Name so no row is ever skipped or repeated across pages.
+        var items = await query
+            .OrderBy(c => c.Name)
+            .ThenBy(c => c.Id)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
 }

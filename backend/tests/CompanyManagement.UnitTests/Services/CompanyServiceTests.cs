@@ -347,5 +347,16 @@ public class CompanyServiceTests
 
         public Task<Company?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
             Task.FromResult(Companies.FirstOrDefault(c => c.Id == id));
+
+        public Task<(IReadOnlyList<Company> Items, int TotalCount)> GetPagedAsync(
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken = default)
+        {
+            var ordered = Companies.OrderBy(c => c.Name, StringComparer.Ordinal).ThenBy(c => c.Id).ToList();
+            IReadOnlyList<Company> page = ordered.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
+
+            return Task.FromResult((page, ordered.Count));
+        }
     }
 }

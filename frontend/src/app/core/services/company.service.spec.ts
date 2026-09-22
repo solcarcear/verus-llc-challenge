@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { API_BASE_URL } from '../config/api.config';
-import { Company, CreateCompanyRequest } from '../models/company.model';
+import { Company, CreateCompanyRequest, PagedResult } from '../models/company.model';
 import { CompanyService } from './company.service';
 
 describe('CompanyService', () => {
@@ -23,17 +23,25 @@ describe('CompanyService', () => {
     httpMock.verify();
   });
 
-  it('getAll sends a GET request to /api/companies and returns the typed response', () => {
-    const mockCompanies: Company[] = [{ id: '1', name: 'Acme', websiteUrl: 'https://acme.com' }];
-    let result: Company[] | undefined;
+  it('getAll sends a GET request with pageNumber/pageSize and returns the typed page', () => {
+    const mockPage: PagedResult<Company> = {
+      items: [{ id: '1', name: 'Acme', websiteUrl: 'https://acme.com' }],
+      pageNumber: 1,
+      pageSize: 20,
+      totalCount: 1,
+      totalPages: 1,
+    };
+    let result: PagedResult<Company> | undefined;
 
-    service.getAll().subscribe((companies) => (result = companies));
+    service.getAll(1, 20).subscribe((page) => (result = page));
 
-    const req = httpMock.expectOne(companiesUrl);
+    const req = httpMock.expectOne((request) => request.url === companiesUrl);
     expect(req.request.method).toBe('GET');
-    req.flush(mockCompanies);
+    expect(req.request.params.get('pageNumber')).toBe('1');
+    expect(req.request.params.get('pageSize')).toBe('20');
+    req.flush(mockPage);
 
-    expect(result).toEqual(mockCompanies);
+    expect(result).toEqual(mockPage);
   });
 
   it('getById sends a GET request to /api/companies/{id}', () => {

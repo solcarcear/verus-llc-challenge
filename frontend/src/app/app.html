@@ -30,6 +30,18 @@
         </div>
       } @else {
         <app-company-list [companies]="companies()" [emptyMessage]="emptyMessage()" />
+
+        @if (!activeSearchQuery() && totalPages() > 0) {
+          <nav class="pagination" aria-label="Company list pages">
+            <button type="button" (click)="onPreviousPage()" [disabled]="pageNumber() <= 1">
+              Previous
+            </button>
+            <span class="pagination-status">Page {{ pageNumber() }} of {{ totalPages() }}</span>
+            <button type="button" (click)="onNextPage()" [disabled]="pageNumber() >= totalPages()">
+              Next
+            </button>
+          </nav>
+        }
       }
     </section>
   </main>

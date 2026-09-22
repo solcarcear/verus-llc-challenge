@@ -2,15 +2,16 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
-import { Company, CreateCompanyRequest } from '../models/company.model';
+import { Company, CreateCompanyRequest, PagedResult } from '../models/company.model';
 
 @Injectable({ providedIn: 'root' })
 export class CompanyService {
   private readonly http = inject(HttpClient);
   private readonly companiesUrl = `${API_BASE_URL}/companies`;
 
-  getAll(): Observable<Company[]> {
-    return this.http.get<Company[]>(this.companiesUrl);
+  getAll(pageNumber: number, pageSize: number): Observable<PagedResult<Company>> {
+    const params = new HttpParams().set('pageNumber', pageNumber).set('pageSize', pageSize);
+    return this.http.get<PagedResult<Company>>(this.companiesUrl, { params });
   }
 
   getById(id: string): Observable<Company> {

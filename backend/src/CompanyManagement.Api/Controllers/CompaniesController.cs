@@ -8,6 +8,9 @@ namespace CompanyManagement.Api.Controllers;
 [Route("api/companies")]
 public sealed class CompaniesController : ControllerBase
 {
+    private const int DefaultPageSize = 20;
+    private const int MaxPageSize = 100;
+
     private readonly ICompanyService _companyService;
     private readonly ILogger<CompaniesController> _logger;
 
@@ -46,17 +49,40 @@ public sealed class CompaniesController : ControllerBase
         }
     }
 
+    // Search returns its full relevance-scored result set unpaginated (it's already a
+    // whole-dataset, in-memory ranking operation over a typically small match count).
+    // Plain browsing (no search) is paginated, since that's the path that would otherwise
+    // load the entire Companies table into memory.
     [HttpGet]
-    [ProducesResponseType(typeof(IEnumerable<CompanyResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<CompanyResponse>>> GetAllCompanies(
+    [ProducesResponseType(typeof(PagedResponse<CompanyResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAllCompanies(
         [FromQuery(Name = "search")] string? search,
-        CancellationToken cancellationToken)
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = DefaultPageSize,
+        CancellationToken cancellationToken = default)
     {
-        var companies = string.IsNullOrWhiteSpace(search)
-            ? await _companyService.GetAllCompaniesAsync(cancellationToken)
-            : await _companyService.SearchCompaniesAsync(search, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var searchResults = await _companyService.SearchCompaniesAsync(search, cancellationToken);
+            return Ok(searchResults.Select(CompanyResponse.FromDomain));
+        }
 
-        return Ok(companies.Select(CompanyResponse.FromDomain));
+        var normalizedPageNumber = pageNumber < 1 ? 1 : pageNumber;
+        var normalizedPageSize = pageSize < 1 ? DefaultPageSize : Math.Min(pageSize, MaxPageSize);
+
+        var (companies, totalCount) = await _companyService.GetCompaniesPagedAsync(
+            normalizedPageNumber, normalizedPageSize, cancellationToken);
+
+        var totalPages = totalCount == 0
+            ? 0
+            : (int)Math.Ceiling(totalCount / (double)normalizedPageSize);
+
+        return Ok(new PagedResponse<CompanyResponse>(
+            companies.Select(CompanyResponse.FromDomain).ToList(),
+            normalizedPageNumber,
+            normalizedPageSize,
+            totalCount,
+            totalPages));
     }
 
     [HttpGet("{id:guid}")]

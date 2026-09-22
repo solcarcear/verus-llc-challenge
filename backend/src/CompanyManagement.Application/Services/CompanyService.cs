@@ -65,6 +65,12 @@ public sealed class CompanyService : ICompanyService
     public Task<Company?> GetCompanyByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         _repository.GetByIdAsync(id, cancellationToken);
 
+    public Task<(IReadOnlyList<Company> Items, int TotalCount)> GetCompaniesPagedAsync(
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default) =>
+        _repository.GetPagedAsync(pageNumber, pageSize, cancellationToken);
+
     public async Task<IReadOnlyList<Company>> SearchCompaniesAsync(
         string? query,
         CancellationToken cancellationToken = default)
