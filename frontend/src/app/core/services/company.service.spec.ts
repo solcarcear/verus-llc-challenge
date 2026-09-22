@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { API_BASE_URL } from '../config/api.config';
-import { Company, CreateCompanyRequest, PagedResult } from '../models/company.model';
+import { Company, CreateCompanyRequest, PagedResult, UpdateCompanyRequest } from '../models/company.model';
 import { CompanyService } from './company.service';
 
 describe('CompanyService', () => {
@@ -84,5 +84,32 @@ describe('CompanyService', () => {
     req.flush(mockCompanies);
 
     expect(result).toEqual(mockCompanies);
+  });
+
+  it('update sends a PUT request to /api/companies/{id} with the expected body', () => {
+    const request: UpdateCompanyRequest = { name: 'Acme Global', websiteUrl: 'https://acmeglobal.com' };
+    const mockResponse: Company = { id: '1', ...request };
+    let result: Company | undefined;
+
+    service.update('1', request).subscribe((company) => (result = company));
+
+    const req = httpMock.expectOne(`${companiesUrl}/1`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual(request);
+    req.flush(mockResponse);
+
+    expect(result).toEqual(mockResponse);
+  });
+
+  it('delete sends a DELETE request to /api/companies/{id}', () => {
+    let completed = false;
+
+    service.delete('1').subscribe(() => (completed = true));
+
+    const req = httpMock.expectOne(`${companiesUrl}/1`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+
+    expect(completed).toBe(true);
   });
 });

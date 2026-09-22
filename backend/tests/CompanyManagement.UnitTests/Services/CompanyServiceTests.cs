@@ -296,6 +296,97 @@ public class CompanyServiceTests
         Assert.Empty(results);
     }
 
+    [Fact]
+    public async Task UpdateCompanyAsync_ExistingCompany_UpdatesAndReturnsIt()
+    {
+        var existing = new Company(Guid.NewGuid(), "Acme Corp", "https://acme.com");
+        var repository = new FakeCompanyRepository();
+        repository.Companies.Add(existing);
+        var service = CreateService(repository);
+
+        var result = await service.UpdateCompanyAsync(existing.Id, "Acme Global", "https://acmeglobal.com");
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(CompanyUpdateStatus.Updated, result.Status);
+        Assert.Equal("Acme Global", result.Company!.Name);
+        Assert.Equal("https://acmeglobal.com", result.Company.WebsiteUrl);
+        Assert.Single(repository.Companies);
+        Assert.Equal("Acme Global", repository.Companies[0].Name);
+    }
+
+    [Fact]
+    public async Task UpdateCompanyAsync_UnknownId_ReturnsNotFound_WithoutValidatingOrPersisting()
+    {
+        var validator = new StubCompanyValidator(CompanyValidationResult.Success());
+        var repository = new FakeCompanyRepository();
+        var service = new CompanyService(validator, new StubCompanyRelevanceEvaluator(CompanyRelevanceResult.Relevant(100)), repository);
+
+        var result = await service.UpdateCompanyAsync(Guid.NewGuid(), "Acme Global", "https://acmeglobal.com");
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(CompanyUpdateStatus.NotFound, result.Status);
+        Assert.False(validator.WasCalled);
+    }
+
+    [Fact]
+    public async Task UpdateCompanyAsync_InvalidInput_ReturnsValidationFailure_AndDoesNotPersist()
+    {
+        var existing = new Company(Guid.NewGuid(), "Acme Corp", "https://acme.com");
+        var repository = new FakeCompanyRepository();
+        repository.Companies.Add(existing);
+        var validationErrors = new[] { "Company name is required." };
+        var validator = new StubCompanyValidator(CompanyValidationResult.Failure(validationErrors));
+        var service = new CompanyService(validator, new StubCompanyRelevanceEvaluator(CompanyRelevanceResult.Relevant(100)), repository);
+
+        var result = await service.UpdateCompanyAsync(existing.Id, "", "not-a-url");
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(CompanyUpdateStatus.ValidationFailed, result.Status);
+        Assert.Equal(validationErrors, result.Errors);
+        Assert.Equal("Acme Corp", repository.Companies[0].Name);
+    }
+
+    [Fact]
+    public async Task UpdateCompanyAsync_IrrelevantNameAndWebsite_ReturnsNotRelevant_AndDoesNotPersist()
+    {
+        var existing = new Company(Guid.NewGuid(), "Acme Corp", "https://acme.com");
+        var repository = new FakeCompanyRepository();
+        repository.Companies.Add(existing);
+        var validator = new StubCompanyValidator(CompanyValidationResult.Success());
+        var relevanceEvaluator = new StubCompanyRelevanceEvaluator(CompanyRelevanceResult.NotRelevant());
+        var service = new CompanyService(validator, relevanceEvaluator, repository);
+
+        var result = await service.UpdateCompanyAsync(existing.Id, "Microsoft Corporation", "https://apple.com");
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(CompanyUpdateStatus.NotRelevant, result.Status);
+        Assert.Equal("Acme Corp", repository.Companies[0].Name);
+    }
+
+    [Fact]
+    public async Task DeleteCompanyAsync_ExistingCompany_RemovesItAndReturnsTrue()
+    {
+        var existing = new Company(Guid.NewGuid(), "Acme Corp", "https://acme.com");
+        var repository = new FakeCompanyRepository();
+        repository.Companies.Add(existing);
+        var service = CreateService(repository);
+
+        var deleted = await service.DeleteCompanyAsync(existing.Id);
+
+        Assert.True(deleted);
+        Assert.Empty(repository.Companies);
+    }
+
+    [Fact]
+    public async Task DeleteCompanyAsync_UnknownId_ReturnsFalse()
+    {
+        var service = CreateService(new FakeCompanyRepository());
+
+        var deleted = await service.DeleteCompanyAsync(Guid.NewGuid());
+
+        Assert.False(deleted);
+    }
+
     private static CompanyService CreateService(ICompanyRepository repository) =>
         new(
             new StubCompanyValidator(CompanyValidationResult.Success()),
@@ -358,5 +449,19 @@ public class CompanyServiceTests
 
             return Task.FromResult((page, ordered.Count));
         }
+
+        public Task UpdateAsync(Company company, CancellationToken cancellationToken = default)
+        {
+            var index = Companies.FindIndex(c => c.Id == company.Id);
+            if (index >= 0)
+            {
+                Companies[index] = company;
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Companies.RemoveAll(c => c.Id == id) > 0);
     }
 }

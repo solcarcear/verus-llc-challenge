@@ -7,10 +7,10 @@ namespace CompanyManagement.UnitTests.Persistence;
 
 public class EfCompanyRepositoryTests
 {
-    private static EfCompanyRepository CreateRepository()
+    private static EfCompanyRepository CreateRepository(string? databaseName = null)
     {
         var options = new DbContextOptionsBuilder<CompanyManagementDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .UseInMemoryDatabase(databaseName ?? Guid.NewGuid().ToString())
             .Options;
 
         return new EfCompanyRepository(new CompanyManagementDbContext(options));
@@ -131,6 +131,48 @@ public class EfCompanyRepositoryTests
 
         Assert.Empty(items);
         Assert.Equal(3, totalCount);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ExistingCompany_PersistsTheChanges()
+    {
+        // A separate repository (fresh DbContext) per call mirrors production, where
+        // every HTTP request gets its own scoped DbContext - and avoids EF's "already
+        // tracked with a different instance" conflict that reusing one DbContext here
+        // would otherwise hit, since Company has no setters to mutate a tracked instance.
+        var databaseName = Guid.NewGuid().ToString();
+        var company = new Company(Guid.NewGuid(), "Acme Corp", "https://acme.com");
+        await CreateRepository(databaseName).AddAsync(company);
+
+        var updated = new Company(company.Id, "Acme Global", "https://acmeglobal.com");
+        await CreateRepository(databaseName).UpdateAsync(updated);
+
+        var retrieved = await CreateRepository(databaseName).GetByIdAsync(company.Id);
+        Assert.NotNull(retrieved);
+        Assert.Equal("Acme Global", retrieved!.Name);
+        Assert.Equal("https://acmeglobal.com", retrieved.WebsiteUrl);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ExistingCompany_RemovesItAndReturnsTrue()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        var company = new Company(Guid.NewGuid(), "Acme Corp", "https://acme.com");
+        await CreateRepository(databaseName).AddAsync(company);
+
+        var deleted = await CreateRepository(databaseName).DeleteAsync(company.Id);
+
+        Assert.True(deleted);
+        var retrieved = await CreateRepository(databaseName).GetByIdAsync(company.Id);
+        Assert.Null(retrieved);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_UnknownId_ReturnsFalse()
+    {
+        var deleted = await CreateRepository().DeleteAsync(Guid.NewGuid());
+
+        Assert.False(deleted);
     }
 
     private static List<Company> BuildCompanies(int count) =>

@@ -99,4 +99,53 @@ public sealed class CompaniesController : ControllerBase
 
         return Ok(CompanyResponse.FromDomain(company));
     }
+
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(CompanyResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateCompany(
+        Guid id,
+        [FromBody] UpdateCompanyRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _companyService.UpdateCompanyAsync(id, request.Name, request.WebsiteUrl, cancellationToken);
+
+        switch (result.Status)
+        {
+            case CompanyUpdateStatus.Updated:
+                _logger.LogInformation("Updated company {CompanyId}", id);
+                return Ok(CompanyResponse.FromDomain(result.Company!));
+
+            case CompanyUpdateStatus.NotFound:
+                return NotFound();
+
+            case CompanyUpdateStatus.ValidationFailed:
+                _logger.LogWarning("Company update rejected due to validation errors");
+                return BadRequest(new ApiErrorResponse("Company validation failed.", result.Errors));
+
+            case CompanyUpdateStatus.NotRelevant:
+                _logger.LogWarning("Company update rejected because the company is not relevant to the website");
+                return BadRequest(new ApiErrorResponse("Company is not relevant to the provided website.", result.Errors));
+
+            default:
+                throw new InvalidOperationException($"Unhandled company update status: {result.Status}");
+        }
+    }
+
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteCompany(Guid id, CancellationToken cancellationToken)
+    {
+        var deleted = await _companyService.DeleteCompanyAsync(id, cancellationToken);
+
+        if (!deleted)
+        {
+            return NotFound();
+        }
+
+        _logger.LogInformation("Deleted company {CompanyId}", id);
+        return NoContent();
+    }
 }

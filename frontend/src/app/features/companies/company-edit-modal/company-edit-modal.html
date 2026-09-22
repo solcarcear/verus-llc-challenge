@@ -1,0 +1,75 @@
+<div class="modal-backdrop" (click)="onCancel()">
+  <div
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="edit-company-title"
+    (click)="$event.stopPropagation()"
+  >
+    <h2 id="edit-company-title">Edit company</h2>
+
+    <form class="company-form" [formGroup]="form" (ngSubmit)="onSave()" novalidate>
+      <div class="form-field">
+        <label for="edit-company-name">Company name</label>
+        <input
+          id="edit-company-name"
+          type="text"
+          formControlName="name"
+          autocomplete="organization"
+          [attr.aria-invalid]="showError('name')"
+          [attr.aria-describedby]="showError('name') ? 'edit-company-name-error' : null"
+        />
+        @if (showError('name')) {
+          <p id="edit-company-name-error" class="error-message" role="alert">
+            @if (form.controls.name.hasError('required')) {
+              Company name is required.
+            } @else if (form.controls.name.hasError('minlength')) {
+              Company name must be at least {{ minimumNameLength }} characters long.
+            }
+          </p>
+        }
+      </div>
+
+      <div class="form-field">
+        <label for="edit-company-website">Website URL</label>
+        <input
+          id="edit-company-website"
+          type="url"
+          formControlName="websiteUrl"
+          autocomplete="url"
+          placeholder="https://example.com"
+          [attr.aria-invalid]="showError('websiteUrl')"
+          [attr.aria-describedby]="showError('websiteUrl') ? 'edit-company-website-error' : null"
+        />
+        @if (showError('websiteUrl')) {
+          <p id="edit-company-website-error" class="error-message" role="alert">
+            @if (form.controls.websiteUrl.hasError('required')) {
+              Website URL is required.
+            } @else if (form.controls.websiteUrl.hasError('invalidUrl')) {
+              Website URL must be a valid URL starting with http:// or https://.
+            }
+          </p>
+        }
+      </div>
+
+      @if (backendErrors(); as errors) {
+        <ul class="error-message backend-errors" role="alert">
+          @for (error of errors; track error) {
+            <li>{{ error }}</li>
+          }
+        </ul>
+      }
+
+      @if (genericErrorMessage(); as message) {
+        <p class="error-message" role="alert">{{ message }}</p>
+      }
+
+      <div class="modal-actions">
+        <button type="button" class="secondary" (click)="onCancel()">Cancel</button>
+        <button type="submit" [disabled]="isSubmitting()">
+          {{ isSubmitting() ? 'Saving…' : 'Save' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

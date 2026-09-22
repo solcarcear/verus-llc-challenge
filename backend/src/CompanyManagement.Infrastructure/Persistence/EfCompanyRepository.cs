@@ -54,4 +54,27 @@ public sealed class EfCompanyRepository : ICompanyRepository
 
         return (items, totalCount);
     }
+
+    public async Task UpdateAsync(Company company, CancellationToken cancellationToken = default)
+    {
+        // Company is immutable, so there's no tracked instance to mutate in place -
+        // Update() attaches this new instance by its Id and marks every scalar
+        // property as modified, producing a single full-row UPDATE statement.
+        _dbContext.Companies.Update(company);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var company = await _dbContext.Companies.FindAsync(new object[] { id }, cancellationToken);
+        if (company is null)
+        {
+            return false;
+        }
+
+        _dbContext.Companies.Remove(company);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return true;
+    }
 }

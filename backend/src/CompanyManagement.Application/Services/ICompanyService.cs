@@ -16,4 +16,12 @@ public interface ICompanyService
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<Company>> SearchCompaniesAsync(string? query, CancellationToken cancellationToken = default);
+
+    Task<UpdateCompanyResult> UpdateCompanyAsync(
+        Guid id,
+        string? name,
+        string? websiteUrl,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> DeleteCompanyAsync(Guid id, CancellationToken cancellationToken = default);
 }

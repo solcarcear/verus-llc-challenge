@@ -145,5 +145,38 @@ public sealed class CompanyService : ICompanyService
             : host;
     }
 
+    public async Task<UpdateCompanyResult> UpdateCompanyAsync(
+        Guid id,
+        string? name,
+        string? websiteUrl,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await _repository.GetByIdAsync(id, cancellationToken);
+        if (existing is null)
+        {
+            return UpdateCompanyResult.NotFound();
+        }
+
+        var validationResult = _validator.Validate(name, websiteUrl);
+        if (!validationResult.IsValid)
+        {
+            return UpdateCompanyResult.ValidationFailure(validationResult.Errors);
+        }
+
+        var relevanceResult = _relevanceEvaluator.Evaluate(name, websiteUrl);
+        if (!relevanceResult.IsRelevant)
+        {
+            return UpdateCompanyResult.RelevanceFailure(NotRelevantMessage);
+        }
+
+        var updated = new Company(id, name!, websiteUrl!);
+        await _repository.UpdateAsync(updated, cancellationToken);
+
+        return UpdateCompanyResult.Success(updated);
+    }
+
+    public Task<bool> DeleteCompanyAsync(Guid id, CancellationToken cancellationToken = default) =>
+        _repository.DeleteAsync(id, cancellationToken);
+
     private sealed record CompanySearchResult(Company Company, int Score);
 }

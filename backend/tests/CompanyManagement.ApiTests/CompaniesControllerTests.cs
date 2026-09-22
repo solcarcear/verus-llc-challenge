@@ -285,4 +285,140 @@ public class CompaniesControllerTests
         Assert.NotNull(companies);
         Assert.Empty(companies!);
     }
+
+    [Fact]
+    public async Task PutCompany_ExistingCompany_ReturnsOkWithUpdatedBody()
+    {
+        using var factory = new TestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/companies",
+            new CreateCompanyRequest("Acme Corp", "https://acme.com"));
+        var created = await createResponse.Content.ReadFromJsonAsync<CompanyResponse>();
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/companies/{created!.Id}",
+            new UpdateCompanyRequest("Acme Global", "https://acmeglobal.com"));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var updated = await response.Content.ReadFromJsonAsync<CompanyResponse>();
+        Assert.NotNull(updated);
+        Assert.Equal(created.Id, updated!.Id);
+        Assert.Equal("Acme Global", updated.Name);
+        Assert.Equal("https://acmeglobal.com", updated.WebsiteUrl);
+    }
+
+    [Fact]
+    public async Task PutCompany_PersistsTheChange_VisibleOnSubsequentGet()
+    {
+        using var factory = new TestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/companies",
+            new CreateCompanyRequest("Acme Corp", "https://acme.com"));
+        var created = await createResponse.Content.ReadFromJsonAsync<CompanyResponse>();
+
+        await client.PutAsJsonAsync(
+            $"/api/companies/{created!.Id}",
+            new UpdateCompanyRequest("Acme Global", "https://acmeglobal.com"));
+        var getResponse = await client.GetAsync($"/api/companies/{created.Id}");
+
+        var fetched = await getResponse.Content.ReadFromJsonAsync<CompanyResponse>();
+        Assert.Equal("Acme Global", fetched!.Name);
+    }
+
+    [Fact]
+    public async Task PutCompany_UnknownId_ReturnsNotFound()
+    {
+        using var factory = new TestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/companies/{Guid.NewGuid()}",
+            new UpdateCompanyRequest("Acme Global", "https://acmeglobal.com"));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PutCompany_InvalidRequest_ReturnsBadRequest()
+    {
+        using var factory = new TestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/companies",
+            new CreateCompanyRequest("Acme Corp", "https://acme.com"));
+        var created = await createResponse.Content.ReadFromJsonAsync<CompanyResponse>();
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/companies/{created!.Id}",
+            new UpdateCompanyRequest("", "not-a-url"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PutCompany_IrrelevantNameAndWebsite_ReturnsBadRequest()
+    {
+        using var factory = new TestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/companies",
+            new CreateCompanyRequest("Acme Corp", "https://acme.com"));
+        var created = await createResponse.Content.ReadFromJsonAsync<CompanyResponse>();
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/companies/{created!.Id}",
+            new UpdateCompanyRequest("Microsoft Corporation", "https://apple.com"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteCompany_ExistingCompany_ReturnsNoContent()
+    {
+        using var factory = new TestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/companies",
+            new CreateCompanyRequest("Acme Corp", "https://acme.com"));
+        var created = await createResponse.Content.ReadFromJsonAsync<CompanyResponse>();
+
+        var response = await client.DeleteAsync($"/api/companies/{created!.Id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteCompany_RemovesItFromSubsequentGetAll()
+    {
+        using var factory = new TestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/companies",
+            new CreateCompanyRequest("Acme Corp", "https://acme.com"));
+        var created = await createResponse.Content.ReadFromJsonAsync<CompanyResponse>();
+
+        await client.DeleteAsync($"/api/companies/{created!.Id}");
+        var getResponse = await client.GetAsync($"/api/companies/{created.Id}");
+
+        Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteCompany_UnknownId_ReturnsNotFound()
+    {
+        using var factory = new TestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.DeleteAsync($"/api/companies/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }

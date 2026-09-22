@@ -61,6 +61,11 @@
   color: #b3261e;
 }
 
+.status-message--success {
+  background: #eafaf0;
+  color: #166534;
+}
+
 .initial-state {
   display: flex;
   flex-direction: column;

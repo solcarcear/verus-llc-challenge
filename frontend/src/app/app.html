@@ -17,6 +17,10 @@
         (clearRequested)="onClearRequested()"
       />
 
+      @if (deleteMessage(); as message) {
+        <p class="status-message status-message--success" role="status">{{ message }}</p>
+      }
+
       @if (loading()) {
         <p class="status-message">Loading companies…</p>
       } @else if (searching()) {
@@ -29,7 +33,12 @@
           <button type="button" (click)="loadCompanies()">Load companies</button>
         </div>
       } @else {
-        <app-company-list [companies]="companies()" [emptyMessage]="emptyMessage()" />
+        <app-company-list
+          [companies]="companies()"
+          [emptyMessage]="emptyMessage()"
+          (editRequested)="onEditRequested($event)"
+          (deleteRequested)="onDeleteRequested($event)"
+        />
 
         @if (!activeSearchQuery() && totalPages() > 0) {
           <nav class="pagination" aria-label="Company list pages">
@@ -46,5 +55,13 @@
     </section>
   </main>
 </div>
+
+@if (editingCompany(); as company) {
+  <app-company-edit-modal
+    [company]="company"
+    (saved)="onCompanyUpdated($event)"
+    (cancelled)="onEditCancelled()"
+  />
+}
 
 <router-outlet />

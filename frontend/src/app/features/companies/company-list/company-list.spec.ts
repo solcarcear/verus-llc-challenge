@@ -61,4 +61,34 @@ describe('CompanyList', () => {
     const items = (fixture.nativeElement as HTMLElement).querySelectorAll('.company-list-item');
     expect(items.length).toBe(2);
   });
+
+  it('emits editRequested with the company when Edit is clicked', () => {
+    const company: Company = { id: '1', name: 'Acme Corp', websiteUrl: 'https://acme.com' };
+    fixture.componentRef.setInput('companies', [company]);
+    const emitted: Company[] = [];
+    fixture.componentInstance.editRequested.subscribe((c) => emitted.push(c));
+    fixture.detectChanges();
+
+    const editButton = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+      '.link-button:not(.link-button--danger)',
+    );
+    editButton?.click();
+
+    expect(emitted).toEqual([company]);
+  });
+
+  it('emits deleteRequested with the company when Delete is clicked', () => {
+    const company: Company = { id: '1', name: 'Acme Corp', websiteUrl: 'https://acme.com' };
+    fixture.componentRef.setInput('companies', [company]);
+    const emitted: Company[] = [];
+    fixture.componentInstance.deleteRequested.subscribe((c) => emitted.push(c));
+    fixture.detectChanges();
+
+    const deleteButton = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+      '.link-button--danger',
+    );
+    deleteButton?.click();
+
+    expect(emitted).toEqual([company]);
+  });
 });

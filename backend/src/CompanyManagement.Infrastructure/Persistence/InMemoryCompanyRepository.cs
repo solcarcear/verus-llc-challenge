@@ -54,4 +54,20 @@ public sealed class InMemoryCompanyRepository : ICompanyRepository
 
         return Task.FromResult((page, ordered.Count));
     }
+
+    public Task UpdateAsync(Company company, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        _companies[company.Id] = company;
+
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return Task.FromResult(_companies.TryRemove(id, out _));
+    }
 }

@@ -16,4 +16,12 @@ public interface ICompanyRepository
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);
+
+    // Callers are expected to have already confirmed the company exists (e.g. via
+    // GetByIdAsync) before calling this - it always attaches and saves.
+    Task UpdateAsync(Company company, CancellationToken cancellationToken = default);
+
+    // Returns false instead of throwing when the id doesn't exist, so callers can
+    // turn that directly into a 404 without a separate existence check.
+    Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 }

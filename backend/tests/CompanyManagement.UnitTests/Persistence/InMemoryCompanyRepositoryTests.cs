@@ -89,6 +89,40 @@ public class InMemoryCompanyRepositoryTests
     }
 
     [Fact]
+    public async Task UpdateAsync_ExistingCompany_ReplacesItInStorage()
+    {
+        var company = new Company(Guid.NewGuid(), "Acme Corp", "https://acme.com");
+        await _repository.AddAsync(company);
+
+        var updated = new Company(company.Id, "Acme Global", "https://acmeglobal.com");
+        await _repository.UpdateAsync(updated);
+
+        var retrieved = await _repository.GetByIdAsync(company.Id);
+        Assert.Equal("Acme Global", retrieved!.Name);
+        Assert.Equal("https://acmeglobal.com", retrieved.WebsiteUrl);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ExistingCompany_RemovesItAndReturnsTrue()
+    {
+        var company = new Company(Guid.NewGuid(), "Acme Corp", "https://acme.com");
+        await _repository.AddAsync(company);
+
+        var deleted = await _repository.DeleteAsync(company.Id);
+
+        Assert.True(deleted);
+        Assert.Null(await _repository.GetByIdAsync(company.Id));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_UnknownId_ReturnsFalse()
+    {
+        var deleted = await _repository.DeleteAsync(Guid.NewGuid());
+
+        Assert.False(deleted);
+    }
+
+    [Fact]
     public async Task GetPagedAsync_ReturnsRequestedPageSize_AndCorrectTotalCount()
     {
         foreach (var company in Enumerable.Range(0, 25).Select(i => new Company(Guid.NewGuid(), $"Company {i:D2}", $"https://company{i}.com")))

@@ -1,33 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import {
-  AbstractControl,
-  FormControl,
-  FormGroup,
-  ReactiveFormsModule,
-  ValidationErrors,
-  Validators,
-} from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CompanyService } from '../../../core/services/company.service';
+import { httpUrlValidator } from '../../../core/validators/http-url.validator';
 import { ApiErrorResponse, Company } from '../../../core/models/company.model';
 
 const MINIMUM_NAME_LENGTH = 3;
-
-function httpUrlValidator(control: AbstractControl<string>): ValidationErrors | null {
-  const value = control.value?.trim();
-
-  if (!value) {
-    return null;
-  }
-
-  try {
-    const url = new URL(value);
-    return url.protocol === 'http:' || url.protocol === 'https:' ? null : { invalidUrl: true };
-  } catch {
-    return { invalidUrl: true };
-  }
-}
 
 interface CompanyFormControls {
   name: FormControl<string>;

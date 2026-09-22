@@ -9,6 +9,11 @@ export interface CreateCompanyRequest {
   readonly websiteUrl: string;
 }
 
+export interface UpdateCompanyRequest {
+  readonly name: string;
+  readonly websiteUrl: string;
+}
+
 export interface ApiErrorResponse {
   readonly message: string;
   readonly errors: readonly string[];

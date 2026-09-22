@@ -3,7 +3,9 @@ import { DebugElement, Type } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { Subject } from 'rxjs';
 import { App } from './app';
+import { CompanyEditModal } from './features/companies/company-edit-modal/company-edit-modal';
 import { CompanyForm } from './features/companies/company-form/company-form';
+import { CompanyList } from './features/companies/company-list/company-list';
 import { CompanySearch } from './features/companies/company-search/company-search';
 import { CompanyService } from './core/services/company.service';
 import { Company, PagedResult } from './core/models/company.model';
@@ -12,6 +14,8 @@ describe('App', () => {
   let fixture: ComponentFixture<App>;
   let getAllSpy: ReturnType<typeof vi.fn>;
   let searchSpy: ReturnType<typeof vi.fn>;
+  let updateSpy: ReturnType<typeof vi.fn>;
+  let deleteSpy: ReturnType<typeof vi.fn>;
 
   const companies: Company[] = [
     { id: '1', name: 'Acme Corp', websiteUrl: 'https://acme.com' },
@@ -46,11 +50,16 @@ describe('App', () => {
   beforeEach(async () => {
     getAllSpy = vi.fn();
     searchSpy = vi.fn();
+    updateSpy = vi.fn();
+    deleteSpy = vi.fn();
 
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [
-        { provide: CompanyService, useValue: { getAll: getAllSpy, search: searchSpy, create: vi.fn() } },
+        {
+          provide: CompanyService,
+          useValue: { getAll: getAllSpy, search: searchSpy, create: vi.fn(), update: updateSpy, delete: deleteSpy },
+        },
       ],
     }).compileComponents();
 
@@ -318,6 +327,162 @@ describe('App', () => {
       fixture.detectChanges();
 
       expect((fixture.nativeElement as HTMLElement).querySelector('.pagination')).toBeNull();
+    });
+  });
+
+  describe('edit', () => {
+    beforeEach(() => {
+      const initialLoad = new Subject<PagedResult<Company>>();
+      getAllSpy.mockReturnValue(initialLoad);
+      fixture.detectChanges();
+      triggerLoad();
+      initialLoad.next(pageOf(companies, { totalPages: 3 }));
+      fixture.detectChanges();
+
+      // Navigate to page 2 for real (clicking Next), since the component's
+      // pageNumber signal is driven by user navigation, not by whatever
+      // pageNumber a mocked response happens to report.
+      const secondPage = new Subject<PagedResult<Company>>();
+      getAllSpy.mockReturnValue(secondPage);
+      (fixture.nativeElement as HTMLElement)
+        .querySelectorAll<HTMLButtonElement>('.pagination button')[1]
+        ?.click();
+      secondPage.next(pageOf(companies, { pageNumber: 2, totalPages: 3 }));
+      fixture.detectChanges();
+    });
+
+    it('opens the modal with the selected company when Edit is requested', () => {
+      const listDebugElement = findComponent(CompanyList);
+      (listDebugElement.componentInstance as CompanyList).editRequested.emit(companies[0]);
+      fixture.detectChanges();
+
+      const modalDebugElement = findComponent(CompanyEditModal);
+      expect(modalDebugElement).toBeTruthy();
+      expect((modalDebugElement.componentInstance as CompanyEditModal).company()).toEqual(companies[0]);
+    });
+
+    it('closes the modal and reloads the same page when the edit is saved', () => {
+      const listDebugElement = findComponent(CompanyList);
+      (listDebugElement.componentInstance as CompanyList).editRequested.emit(companies[0]);
+      fixture.detectChanges();
+
+      const reload = new Subject<PagedResult<Company>>();
+      getAllSpy.mockReturnValue(reload);
+
+      const modalDebugElement = findComponent(CompanyEditModal);
+      const updated: Company = { id: '1', name: 'Acme Global', websiteUrl: 'https://acmeglobal.com' };
+      (modalDebugElement.componentInstance as CompanyEditModal).saved.emit(updated);
+      reload.next(pageOf(companies, { pageNumber: 2, totalPages: 3 }));
+      fixture.detectChanges();
+
+      expect(findComponent(CompanyEditModal)).toBeFalsy();
+      // Still page 2 - saving an edit never changes which page is displayed.
+      expect(getAllSpy).toHaveBeenLastCalledWith(2, 20);
+    });
+
+    it('closes the modal without reloading when the edit is cancelled', () => {
+      const listDebugElement = findComponent(CompanyList);
+      (listDebugElement.componentInstance as CompanyList).editRequested.emit(companies[0]);
+      fixture.detectChanges();
+
+      const callsBeforeCancel = getAllSpy.mock.calls.length;
+      const modalDebugElement = findComponent(CompanyEditModal);
+      (modalDebugElement.componentInstance as CompanyEditModal).cancelled.emit();
+      fixture.detectChanges();
+
+      expect(findComponent(CompanyEditModal)).toBeFalsy();
+      expect(getAllSpy).toHaveBeenCalledTimes(callsBeforeCancel);
+    });
+  });
+
+  describe('delete', () => {
+    let confirmSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      confirmSpy = vi.spyOn(window, 'confirm');
+
+      const initialLoad = new Subject<PagedResult<Company>>();
+      getAllSpy.mockReturnValue(initialLoad);
+      fixture.detectChanges();
+      triggerLoad();
+      initialLoad.next(pageOf(companies, { totalPages: 2 }));
+      fixture.detectChanges();
+    });
+
+    function requestDelete(company: Company): void {
+      const listDebugElement = findComponent(CompanyList);
+      (listDebugElement.componentInstance as CompanyList).deleteRequested.emit(company);
+    }
+
+    it('does nothing if the user does not confirm the deletion', () => {
+      confirmSpy.mockReturnValue(false);
+
+      requestDelete(companies[0]);
+
+      expect(deleteSpy).not.toHaveBeenCalled();
+    });
+
+    it('calls CompanyService.delete and shows a success message once the backend confirms', () => {
+      confirmSpy.mockReturnValue(true);
+      const deleteResult = new Subject<void>();
+      deleteSpy.mockReturnValue(deleteResult);
+      const reload = new Subject<PagedResult<Company>>();
+      getAllSpy.mockReturnValue(reload);
+
+      requestDelete(companies[0]);
+      expect(deleteSpy).toHaveBeenCalledWith('1');
+
+      deleteResult.next();
+      reload.next(pageOf([companies[1]]));
+      fixture.detectChanges();
+
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain('Company deleted successfully.');
+    });
+
+    it('shows an error message and does not reload if deletion fails', () => {
+      confirmSpy.mockReturnValue(true);
+      const deleteResult = new Subject<void>();
+      deleteSpy.mockReturnValue(deleteResult);
+      const callsBeforeDelete = getAllSpy.mock.calls.length;
+
+      requestDelete(companies[0]);
+      deleteResult.error(new Error('boom'));
+      fixture.detectChanges();
+
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain('Unable to delete the company.');
+      expect(getAllSpy).toHaveBeenCalledTimes(callsBeforeDelete);
+    });
+
+    it('steps back to the previous page when deleting leaves the current page empty', () => {
+      confirmSpy.mockReturnValue(true);
+      const deleteResult = new Subject<void>();
+      deleteSpy.mockReturnValue(deleteResult);
+
+      // Move to page 2 first.
+      const secondPage = new Subject<PagedResult<Company>>();
+      getAllSpy.mockReturnValue(secondPage);
+      (fixture.nativeElement as HTMLElement)
+        .querySelectorAll<HTMLButtonElement>('.pagination button')[1]
+        ?.click();
+      secondPage.next(pageOf([companies[0]], { pageNumber: 2, totalPages: 2 }));
+      fixture.detectChanges();
+
+      const afterDelete = new Subject<PagedResult<Company>>();
+      const previousPage = new Subject<PagedResult<Company>>();
+      getAllSpy.mockReturnValueOnce(afterDelete).mockReturnValueOnce(previousPage);
+
+      requestDelete(companies[0]);
+      deleteResult.next();
+      // Page 2 comes back empty now that its only company was deleted.
+      afterDelete.next({ items: [], pageNumber: 2, pageSize: 20, totalCount: 1, totalPages: 1 });
+      previousPage.next(pageOf([companies[1]], { pageNumber: 1, totalPages: 1 }));
+      fixture.detectChanges();
+
+      expect(getAllSpy).toHaveBeenLastCalledWith(1, 20);
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain('Page 1 of 1');
     });
   });
 });

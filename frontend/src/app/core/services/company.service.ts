@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
-import { Company, CreateCompanyRequest, PagedResult } from '../models/company.model';
+import { Company, CreateCompanyRequest, PagedResult, UpdateCompanyRequest } from '../models/company.model';
 
 @Injectable({ providedIn: 'root' })
 export class CompanyService {
@@ -25,5 +25,13 @@ export class CompanyService {
   search(query: string): Observable<Company[]> {
     const params = new HttpParams().set('search', query);
     return this.http.get<Company[]>(this.companiesUrl, { params });
+  }
+
+  update(id: string, request: UpdateCompanyRequest): Observable<Company> {
+    return this.http.put<Company>(`${this.companiesUrl}/${id}`, request);
+  }
+
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.companiesUrl}/${id}`);
   }
 }
