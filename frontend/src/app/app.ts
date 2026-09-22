@@ -1,14 +1,28 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { CompanyDetailsModal } from './features/companies/company-details-modal/company-details-modal';
 import { CompanyEditModal } from './features/companies/company-edit-modal/company-edit-modal';
 import { CompanyForm } from './features/companies/company-form/company-form';
 import { CompanyList } from './features/companies/company-list/company-list';
 import { CompanySearch } from './features/companies/company-search/company-search';
+import { ContactList } from './features/contacts/contact-list/contact-list';
+import { OrderList } from './features/orders/order-list/order-list';
 import { CompanyService } from './core/services/company.service';
-import { Company } from './core/models/company.model';
+import { CompanyListItem } from './core/models/company.model';
+
+type View = 'companies' | 'contacts' | 'orders';
 
 @Component({
-  imports: [RouterOutlet, CompanyEditModal, CompanyForm, CompanyList, CompanySearch],
+  imports: [
+    RouterOutlet,
+    CompanyDetailsModal,
+    CompanyEditModal,
+    CompanyForm,
+    CompanyList,
+    CompanySearch,
+    ContactList,
+    OrderList,
+  ],
   selector: 'app-root',
   styleUrl: './app.css',
   templateUrl: './app.html',
@@ -18,7 +32,13 @@ export class App {
   private readonly pageSize = 20;
   private inFlightSearchQuery: string | null = null;
 
-  protected readonly companies = signal<readonly Company[]>([]);
+  // Simple signal-driven tab switch instead of Angular Router: the app has no
+  // deep-linkable routes today (app.routes.ts is empty), and one flag is enough
+  // to show one of three top-level sections - adding real routing for that
+  // would be more machinery than this screen needs.
+  protected readonly activeView = signal<View>('companies');
+
+  protected readonly companies = signal<readonly CompanyListItem[]>([]);
   protected readonly loading = signal(false);
   protected readonly searching = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
@@ -27,14 +47,19 @@ export class App {
   protected readonly hasFetched = signal(false);
   protected readonly pageNumber = signal(1);
   protected readonly totalPages = signal(0);
-  protected readonly editingCompany = signal<Company | null>(null);
+  protected readonly editingCompany = signal<CompanyListItem | null>(null);
+  protected readonly viewingCompany = signal<CompanyListItem | null>(null);
 
   protected readonly emptyMessage = computed(() => {
     const query = this.activeSearchQuery();
     return query ? `No companies found for "${query}".` : 'No companies have been added yet.';
   });
 
-  protected onCompanyCreated(_company: Company): void {
+  protected onViewChange(view: View): void {
+    this.activeView.set(view);
+  }
+
+  protected onCompanyCreated(_company: unknown): void {
     this.activeSearchQuery.set(null);
     this.deleteMessage.set(null);
     // Re-fetch rather than append locally: the current page is alphabetically
@@ -43,7 +68,15 @@ export class App {
     this.loadCompanies();
   }
 
-  protected onEditRequested(company: Company): void {
+  protected onDetailsRequested(company: CompanyListItem): void {
+    this.viewingCompany.set(company);
+  }
+
+  protected onDetailsClosed(): void {
+    this.viewingCompany.set(null);
+  }
+
+  protected onEditRequested(company: CompanyListItem): void {
     this.deleteMessage.set(null);
     this.editingCompany.set(company);
   }
@@ -52,14 +85,14 @@ export class App {
     this.editingCompany.set(null);
   }
 
-  protected onCompanyUpdated(_updated: Company): void {
+  protected onCompanyUpdated(_updated: unknown): void {
     this.editingCompany.set(null);
     // pageNumber is untouched, so this simply reloads the page the user was
     // already looking at - editing never jumps them anywhere else.
     this.loadCompanies();
   }
 
-  protected onDeleteRequested(company: Company): void {
+  protected onDeleteRequested(company: CompanyListItem): void {
     const confirmed = window.confirm(`Delete "${company.name}"? This cannot be undone.`);
     if (!confirmed) {
       return;

@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using CompanyManagement.Api.Contracts;
+using CompanyManagement.Domain;
+using CompanyManagement.Infrastructure.Persistence;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CompanyManagement.ApiTests;
 
@@ -234,6 +237,25 @@ public class CompaniesControllerTests
     }
 
     [Fact]
+    public async Task GetCompanies_WithSearchQuery_ResultsIncludeContactAndOrderCounts()
+    {
+        using var factory = new TestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/companies", new CreateCompanyRequest("Microsoft Corporation", "https://microsoft.com"));
+        var company = await createResponse.Content.ReadFromJsonAsync<CompanyResponse>();
+        await SeedContactsAndOrdersAsync(factory, company!.Id, contactCount: 4, orderCount: 2);
+
+        var response = await client.GetAsync("/api/companies?search=micro");
+
+        var companies = await response.Content.ReadFromJsonAsync<List<CompanyListItemResponse>>();
+        var item = Assert.Single(companies!);
+        Assert.Equal(4, item.ContactCount);
+        Assert.Equal(2, item.OrderCount);
+    }
+
+    [Fact]
     public async Task GetCompanies_WithDomainSearchQuery_ReturnsMatchingCompany()
     {
         using var factory = new TestWebApplicationFactory();
@@ -420,5 +442,98 @@ public class CompaniesControllerTests
         var response = await client.DeleteAsync($"/api/companies/{Guid.NewGuid()}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetAllCompanies_ReturnsZeroCountsForACompanyWithNoContactsOrOrders()
+    {
+        using var factory = new TestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        await client.PostAsJsonAsync("/api/companies", new CreateCompanyRequest("Acme Corp", "https://acme.com"));
+
+        var response = await client.GetAsync("/api/companies");
+
+        var page = await response.Content.ReadFromJsonAsync<PagedResponse<CompanyListItemResponse>>();
+        Assert.Single(page!.Items);
+        Assert.Equal(0, page.Items[0].ContactCount);
+        Assert.Equal(0, page.Items[0].OrderCount);
+    }
+
+    [Fact]
+    public async Task GetAllCompanies_CountsReflectRelatedContactsAndOrders()
+    {
+        using var factory = new TestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/companies", new CreateCompanyRequest("Acme Corp", "https://acme.com"));
+        var company = await createResponse.Content.ReadFromJsonAsync<CompanyResponse>();
+        await SeedContactsAndOrdersAsync(factory, company!.Id, contactCount: 2, orderCount: 3);
+
+        var response = await client.GetAsync("/api/companies");
+
+        var page = await response.Content.ReadFromJsonAsync<PagedResponse<CompanyListItemResponse>>();
+        var item = Assert.Single(page!.Items);
+        Assert.Equal(2, item.ContactCount);
+        Assert.Equal(3, item.OrderCount);
+    }
+
+    [Fact]
+    public async Task GetCompanyDetails_ExistingCompany_ReturnsItsContactsAndOrders()
+    {
+        using var factory = new TestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/companies", new CreateCompanyRequest("Acme Corp", "https://acme.com"));
+        var company = await createResponse.Content.ReadFromJsonAsync<CompanyResponse>();
+        await SeedContactsAndOrdersAsync(factory, company!.Id, contactCount: 2, orderCount: 1);
+
+        var response = await client.GetAsync($"/api/companies/{company.Id}/details");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var details = await response.Content.ReadFromJsonAsync<CompanyDetailsResponse>();
+        Assert.Equal("Acme Corp", details!.Name);
+        Assert.Equal(2, details.Contacts.Count);
+        Assert.Single(details.Orders);
+    }
+
+    [Fact]
+    public async Task GetCompanyDetails_UnknownId_ReturnsNotFound()
+    {
+        using var factory = new TestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/companies/{Guid.NewGuid()}/details");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    // There's no API to create Contacts/Orders (see the ContactsController comment for
+    // why), so tests that need them seed directly through the same DbContext the test
+    // server's DI container resolves - the same InMemory database the HTTP client's
+    // requests run against.
+    internal static async Task SeedContactsAndOrdersAsync(
+        TestWebApplicationFactory factory, Guid companyId, int contactCount, int orderCount)
+    {
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<CompanyManagementDbContext>();
+
+        for (var i = 0; i < contactCount; i++)
+        {
+            dbContext.Contacts.Add(new Contact(
+                Guid.NewGuid(), companyId, "Jane", "Doe", $"jane.doe{Guid.NewGuid()}@example.test",
+                null, null, true, DateTime.UtcNow));
+        }
+
+        for (var i = 0; i < orderCount; i++)
+        {
+            dbContext.Orders.Add(new Order(
+                Guid.NewGuid(), companyId, $"ORD-{Guid.NewGuid()}", 100m, OrderStatus.Completed,
+                DateTime.UtcNow, null));
+        }
+
+        await dbContext.SaveChangesAsync();
     }
 }

@@ -2,7 +2,14 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { API_BASE_URL } from '../config/api.config';
-import { Company, CreateCompanyRequest, PagedResult, UpdateCompanyRequest } from '../models/company.model';
+import {
+  Company,
+  CompanyDetails,
+  CompanyListItem,
+  CreateCompanyRequest,
+  PagedResult,
+  UpdateCompanyRequest,
+} from '../models/company.model';
 import { CompanyService } from './company.service';
 
 describe('CompanyService', () => {
@@ -24,14 +31,14 @@ describe('CompanyService', () => {
   });
 
   it('getAll sends a GET request with pageNumber/pageSize and returns the typed page', () => {
-    const mockPage: PagedResult<Company> = {
-      items: [{ id: '1', name: 'Acme', websiteUrl: 'https://acme.com' }],
+    const mockPage: PagedResult<CompanyListItem> = {
+      items: [{ id: '1', name: 'Acme', websiteUrl: 'https://acme.com', contactCount: 3, orderCount: 7 }],
       pageNumber: 1,
       pageSize: 20,
       totalCount: 1,
       totalPages: 1,
     };
-    let result: PagedResult<Company> | undefined;
+    let result: PagedResult<CompanyListItem> | undefined;
 
     service.getAll(1, 20).subscribe((page) => (result = page));
 
@@ -57,6 +64,25 @@ describe('CompanyService', () => {
     expect(result).toEqual(mockCompany);
   });
 
+  it('getDetails sends a GET request to /api/companies/{id}/details', () => {
+    const mockDetails: CompanyDetails = {
+      id: '1',
+      name: 'Acme',
+      websiteUrl: 'https://acme.com',
+      contacts: [],
+      orders: [],
+    };
+    let result: CompanyDetails | undefined;
+
+    service.getDetails('1').subscribe((details) => (result = details));
+
+    const req = httpMock.expectOne(`${companiesUrl}/1/details`);
+    expect(req.request.method).toBe('GET');
+    req.flush(mockDetails);
+
+    expect(result).toEqual(mockDetails);
+  });
+
   it('create sends a POST request to /api/companies with the expected body', () => {
     const request: CreateCompanyRequest = { name: 'Acme', websiteUrl: 'https://acme.com' };
     const mockResponse: Company = { id: '1', ...request };
@@ -73,8 +99,10 @@ describe('CompanyService', () => {
   });
 
   it('search sends a GET request with the search query parameter', () => {
-    const mockCompanies: Company[] = [{ id: '1', name: 'Acme', websiteUrl: 'https://acme.com' }];
-    let result: Company[] | undefined;
+    const mockCompanies: CompanyListItem[] = [
+      { id: '1', name: 'Acme', websiteUrl: 'https://acme.com', contactCount: 1, orderCount: 2 },
+    ];
+    let result: CompanyListItem[] | undefined;
 
     service.search('acme').subscribe((companies) => (result = companies));
 

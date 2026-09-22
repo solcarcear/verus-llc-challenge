@@ -1,3 +1,4 @@
+using CompanyManagement.Application.Persistence;
 using CompanyManagement.Domain;
 
 namespace CompanyManagement.Application.Services;
@@ -24,4 +25,15 @@ public interface ICompanyService
         CancellationToken cancellationToken = default);
 
     Task<bool> DeleteCompanyAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<(IReadOnlyList<CompanySummary> Items, int TotalCount)> GetCompanySummariesPagedAsync(
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+
+    Task<Company?> GetCompanyDetailsAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyDictionary<Guid, CompanyRelationshipCounts>> GetRelationshipCountsAsync(
+        IReadOnlyCollection<Guid> companyIds,
+        CancellationToken cancellationToken = default);
 }

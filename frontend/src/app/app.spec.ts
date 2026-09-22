@@ -3,12 +3,13 @@ import { DebugElement, Type } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { Subject } from 'rxjs';
 import { App } from './app';
+import { CompanyDetailsModal } from './features/companies/company-details-modal/company-details-modal';
 import { CompanyEditModal } from './features/companies/company-edit-modal/company-edit-modal';
 import { CompanyForm } from './features/companies/company-form/company-form';
 import { CompanyList } from './features/companies/company-list/company-list';
 import { CompanySearch } from './features/companies/company-search/company-search';
 import { CompanyService } from './core/services/company.service';
-import { Company, PagedResult } from './core/models/company.model';
+import { Company, CompanyListItem, PagedResult } from './core/models/company.model';
 
 describe('App', () => {
   let fixture: ComponentFixture<App>;
@@ -16,16 +17,17 @@ describe('App', () => {
   let searchSpy: ReturnType<typeof vi.fn>;
   let updateSpy: ReturnType<typeof vi.fn>;
   let deleteSpy: ReturnType<typeof vi.fn>;
+  let getDetailsSpy: ReturnType<typeof vi.fn>;
 
-  const companies: Company[] = [
-    { id: '1', name: 'Acme Corp', websiteUrl: 'https://acme.com' },
-    { id: '2', name: 'Globex', websiteUrl: 'https://globex.com' },
+  const companies: CompanyListItem[] = [
+    { id: '1', name: 'Acme Corp', websiteUrl: 'https://acme.com', contactCount: 2, orderCount: 5 },
+    { id: '2', name: 'Globex', websiteUrl: 'https://globex.com', contactCount: 0, orderCount: 0 },
   ];
 
   function pageOf(
-    items: Company[],
-    overrides: Partial<Pick<PagedResult<Company>, 'pageNumber' | 'totalPages'>> = {},
-  ): PagedResult<Company> {
+    items: CompanyListItem[],
+    overrides: Partial<Pick<PagedResult<CompanyListItem>, 'pageNumber' | 'totalPages'>> = {},
+  ): PagedResult<CompanyListItem> {
     return {
       items,
       pageNumber: overrides.pageNumber ?? 1,
@@ -47,18 +49,34 @@ describe('App', () => {
     fixture.detectChanges();
   }
 
+  function clickTab(label: 'Companies' | 'Contacts' | 'Orders'): void {
+    const buttons = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.view-tab'),
+    );
+    buttons.find((button) => button.textContent?.trim() === label)?.click();
+    fixture.detectChanges();
+  }
+
   beforeEach(async () => {
     getAllSpy = vi.fn();
     searchSpy = vi.fn();
     updateSpy = vi.fn();
     deleteSpy = vi.fn();
+    getDetailsSpy = vi.fn();
 
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [
         {
           provide: CompanyService,
-          useValue: { getAll: getAllSpy, search: searchSpy, create: vi.fn(), update: updateSpy, delete: deleteSpy },
+          useValue: {
+            getAll: getAllSpy,
+            search: searchSpy,
+            create: vi.fn(),
+            update: updateSpy,
+            delete: deleteSpy,
+            getDetails: getDetailsSpy,
+          },
         },
       ],
     }).compileComponents();
@@ -80,7 +98,7 @@ describe('App', () => {
   });
 
   it('calls CompanyService.getAll with the default page number and size when the user requests to load companies', () => {
-    getAllSpy.mockReturnValue(new Subject<PagedResult<Company>>());
+    getAllSpy.mockReturnValue(new Subject<PagedResult<CompanyListItem>>());
 
     fixture.detectChanges();
     triggerLoad();
@@ -89,8 +107,8 @@ describe('App', () => {
     expect(getAllSpy).toHaveBeenCalledWith(1, 20);
   });
 
-  it('displays returned companies', () => {
-    const subject = new Subject<PagedResult<Company>>();
+  it('displays returned companies with their contact/order counts', () => {
+    const subject = new Subject<PagedResult<CompanyListItem>>();
     getAllSpy.mockReturnValue(subject);
 
     fixture.detectChanges();
@@ -101,10 +119,12 @@ describe('App', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Acme Corp');
     expect(text).toContain('Globex');
+    expect(text).toContain('2 contacts');
+    expect(text).toContain('5 orders');
   });
 
   it('displays a loading state while the request is pending', () => {
-    getAllSpy.mockReturnValue(new Subject<PagedResult<Company>>());
+    getAllSpy.mockReturnValue(new Subject<PagedResult<CompanyListItem>>());
 
     fixture.detectChanges();
     triggerLoad();
@@ -114,7 +134,7 @@ describe('App', () => {
   });
 
   it('displays a friendly error state when loading fails', () => {
-    const subject = new Subject<PagedResult<Company>>();
+    const subject = new Subject<PagedResult<CompanyListItem>>();
     getAllSpy.mockReturnValue(subject);
 
     fixture.detectChanges();
@@ -128,7 +148,7 @@ describe('App', () => {
   });
 
   it('reloads the current page after a company is created, instead of appending it locally', () => {
-    const initialLoad = new Subject<PagedResult<Company>>();
+    const initialLoad = new Subject<PagedResult<CompanyListItem>>();
     getAllSpy.mockReturnValue(initialLoad);
 
     fixture.detectChanges();
@@ -136,11 +156,12 @@ describe('App', () => {
     initialLoad.next(pageOf([companies[0]]));
     fixture.detectChanges();
 
-    const reload = new Subject<PagedResult<Company>>();
+    const reload = new Subject<PagedResult<CompanyListItem>>();
     getAllSpy.mockReturnValue(reload);
 
+    const created: Company = { id: '3', name: 'Initech', websiteUrl: 'https://initech.com' };
     const formDebugElement = findComponent(CompanyForm);
-    (formDebugElement.componentInstance as CompanyForm).created.emit(companies[1]);
+    (formDebugElement.componentInstance as CompanyForm).created.emit(created);
     reload.next(pageOf(companies));
     fixture.detectChanges();
 
@@ -150,10 +171,38 @@ describe('App', () => {
     expect(text).toContain('Globex');
   });
 
+  describe('view tabs', () => {
+    it('shows the companies section by default', () => {
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('app-company-form')).toBeTruthy();
+      expect(fixture.nativeElement.querySelector('app-contact-list')).toBeFalsy();
+      expect(fixture.nativeElement.querySelector('app-order-list')).toBeFalsy();
+    });
+
+    it('switches to the contacts view', () => {
+      fixture.detectChanges();
+
+      clickTab('Contacts');
+
+      expect(fixture.nativeElement.querySelector('app-contact-list')).toBeTruthy();
+      expect(fixture.nativeElement.querySelector('app-company-form')).toBeFalsy();
+    });
+
+    it('switches to the orders view', () => {
+      fixture.detectChanges();
+
+      clickTab('Orders');
+
+      expect(fixture.nativeElement.querySelector('app-order-list')).toBeTruthy();
+      expect(fixture.nativeElement.querySelector('app-company-form')).toBeFalsy();
+    });
+  });
+
   describe('search', () => {
-    function triggerSearch(query: string): Subject<Company[]> {
+    function triggerSearch(query: string): Subject<CompanyListItem[]> {
       const searchDebugElement = findComponent(CompanySearch);
-      const subject = new Subject<Company[]>();
+      const subject = new Subject<CompanyListItem[]>();
       searchSpy.mockReturnValue(subject);
       (searchDebugElement.componentInstance as CompanySearch).searchRequested.emit(query);
       return subject;
@@ -165,7 +214,7 @@ describe('App', () => {
     }
 
     beforeEach(() => {
-      const initialLoad = new Subject<PagedResult<Company>>();
+      const initialLoad = new Subject<PagedResult<CompanyListItem>>();
       getAllSpy.mockReturnValue(initialLoad);
       fixture.detectChanges();
       triggerLoad();
@@ -213,7 +262,7 @@ describe('App', () => {
       searchSubject.next([companies[0]]);
       fixture.detectChanges();
 
-      const refetch = new Subject<PagedResult<Company>>();
+      const refetch = new Subject<PagedResult<CompanyListItem>>();
       getAllSpy.mockReturnValue(refetch);
       triggerClear();
       refetch.next(pageOf(companies));
@@ -230,13 +279,14 @@ describe('App', () => {
       searchSubject.next([companies[0]]);
       fixture.detectChanges();
 
-      const refetch = new Subject<PagedResult<Company>>();
+      const refetch = new Subject<PagedResult<CompanyListItem>>();
       getAllSpy.mockReturnValue(refetch);
 
       const created: Company = { id: '3', name: 'Initech', websiteUrl: 'https://initech.com' };
+      const createdListItem: CompanyListItem = { ...created, contactCount: 0, orderCount: 0 };
       const formDebugElement = findComponent(CompanyForm);
       (formDebugElement.componentInstance as CompanyForm).created.emit(created);
-      refetch.next(pageOf([...companies, created]));
+      refetch.next(pageOf([...companies, createdListItem]));
       fixture.detectChanges();
 
       expect(getAllSpy).toHaveBeenCalledTimes(2);
@@ -249,7 +299,7 @@ describe('App', () => {
 
   describe('pagination', () => {
     function loadFirstPage(totalPages: number): void {
-      const subject = new Subject<PagedResult<Company>>();
+      const subject = new Subject<PagedResult<CompanyListItem>>();
       getAllSpy.mockReturnValue(subject);
       fixture.detectChanges();
       triggerLoad();
@@ -286,7 +336,7 @@ describe('App', () => {
     it('requests the next page when Next is clicked', () => {
       loadFirstPage(3);
 
-      const nextPage = new Subject<PagedResult<Company>>();
+      const nextPage = new Subject<PagedResult<CompanyListItem>>();
       getAllSpy.mockReturnValue(nextPage);
       findButton('Next')?.click();
       nextPage.next(pageOf(companies, { pageNumber: 2, totalPages: 3 }));
@@ -299,13 +349,13 @@ describe('App', () => {
 
     it('requests the previous page when Previous is clicked', () => {
       loadFirstPage(3);
-      const nextPage = new Subject<PagedResult<Company>>();
+      const nextPage = new Subject<PagedResult<CompanyListItem>>();
       getAllSpy.mockReturnValue(nextPage);
       findButton('Next')?.click();
       nextPage.next(pageOf(companies, { pageNumber: 2, totalPages: 3 }));
       fixture.detectChanges();
 
-      const previousPage = new Subject<PagedResult<Company>>();
+      const previousPage = new Subject<PagedResult<CompanyListItem>>();
       getAllSpy.mockReturnValue(previousPage);
       findButton('Previous')?.click();
       previousPage.next(pageOf(companies, { pageNumber: 1, totalPages: 3 }));
@@ -319,7 +369,7 @@ describe('App', () => {
     it('does not show pagination controls while a search is active', () => {
       loadFirstPage(3);
 
-      const searchSubject = new Subject<Company[]>();
+      const searchSubject = new Subject<CompanyListItem[]>();
       searchSpy.mockReturnValue(searchSubject);
       const searchDebugElement = findComponent(CompanySearch);
       (searchDebugElement.componentInstance as CompanySearch).searchRequested.emit('acme');
@@ -330,9 +380,46 @@ describe('App', () => {
     });
   });
 
+  describe('details', () => {
+    beforeEach(() => {
+      const initialLoad = new Subject<PagedResult<CompanyListItem>>();
+      getAllSpy.mockReturnValue(initialLoad);
+      fixture.detectChanges();
+      triggerLoad();
+      initialLoad.next(pageOf(companies));
+      fixture.detectChanges();
+    });
+
+    it('opens the details modal with the selected company', () => {
+      getDetailsSpy.mockReturnValue(new Subject());
+      const listDebugElement = findComponent(CompanyList);
+      (listDebugElement.componentInstance as CompanyList).detailsRequested.emit(companies[0]);
+      fixture.detectChanges();
+
+      const modalDebugElement = findComponent(CompanyDetailsModal);
+      expect(modalDebugElement).toBeTruthy();
+      expect((modalDebugElement.componentInstance as CompanyDetailsModal).company()).toEqual(companies[0]);
+    });
+
+    it('closes the details modal without reloading the list', () => {
+      getDetailsSpy.mockReturnValue(new Subject());
+      const listDebugElement = findComponent(CompanyList);
+      (listDebugElement.componentInstance as CompanyList).detailsRequested.emit(companies[0]);
+      fixture.detectChanges();
+      const callsBeforeClose = getAllSpy.mock.calls.length;
+
+      const modalDebugElement = findComponent(CompanyDetailsModal);
+      (modalDebugElement.componentInstance as CompanyDetailsModal).closed.emit();
+      fixture.detectChanges();
+
+      expect(findComponent(CompanyDetailsModal)).toBeFalsy();
+      expect(getAllSpy).toHaveBeenCalledTimes(callsBeforeClose);
+    });
+  });
+
   describe('edit', () => {
     beforeEach(() => {
-      const initialLoad = new Subject<PagedResult<Company>>();
+      const initialLoad = new Subject<PagedResult<CompanyListItem>>();
       getAllSpy.mockReturnValue(initialLoad);
       fixture.detectChanges();
       triggerLoad();
@@ -342,7 +429,7 @@ describe('App', () => {
       // Navigate to page 2 for real (clicking Next), since the component's
       // pageNumber signal is driven by user navigation, not by whatever
       // pageNumber a mocked response happens to report.
-      const secondPage = new Subject<PagedResult<Company>>();
+      const secondPage = new Subject<PagedResult<CompanyListItem>>();
       getAllSpy.mockReturnValue(secondPage);
       (fixture.nativeElement as HTMLElement)
         .querySelectorAll<HTMLButtonElement>('.pagination button')[1]
@@ -366,7 +453,7 @@ describe('App', () => {
       (listDebugElement.componentInstance as CompanyList).editRequested.emit(companies[0]);
       fixture.detectChanges();
 
-      const reload = new Subject<PagedResult<Company>>();
+      const reload = new Subject<PagedResult<CompanyListItem>>();
       getAllSpy.mockReturnValue(reload);
 
       const modalDebugElement = findComponent(CompanyEditModal);
@@ -401,7 +488,7 @@ describe('App', () => {
     beforeEach(() => {
       confirmSpy = vi.spyOn(window, 'confirm');
 
-      const initialLoad = new Subject<PagedResult<Company>>();
+      const initialLoad = new Subject<PagedResult<CompanyListItem>>();
       getAllSpy.mockReturnValue(initialLoad);
       fixture.detectChanges();
       triggerLoad();
@@ -409,7 +496,7 @@ describe('App', () => {
       fixture.detectChanges();
     });
 
-    function requestDelete(company: Company): void {
+    function requestDelete(company: CompanyListItem): void {
       const listDebugElement = findComponent(CompanyList);
       (listDebugElement.componentInstance as CompanyList).deleteRequested.emit(company);
     }
@@ -426,7 +513,7 @@ describe('App', () => {
       confirmSpy.mockReturnValue(true);
       const deleteResult = new Subject<void>();
       deleteSpy.mockReturnValue(deleteResult);
-      const reload = new Subject<PagedResult<Company>>();
+      const reload = new Subject<PagedResult<CompanyListItem>>();
       getAllSpy.mockReturnValue(reload);
 
       requestDelete(companies[0]);
@@ -461,7 +548,7 @@ describe('App', () => {
       deleteSpy.mockReturnValue(deleteResult);
 
       // Move to page 2 first.
-      const secondPage = new Subject<PagedResult<Company>>();
+      const secondPage = new Subject<PagedResult<CompanyListItem>>();
       getAllSpy.mockReturnValue(secondPage);
       (fixture.nativeElement as HTMLElement)
         .querySelectorAll<HTMLButtonElement>('.pagination button')[1]
@@ -469,8 +556,8 @@ describe('App', () => {
       secondPage.next(pageOf([companies[0]], { pageNumber: 2, totalPages: 2 }));
       fixture.detectChanges();
 
-      const afterDelete = new Subject<PagedResult<Company>>();
-      const previousPage = new Subject<PagedResult<Company>>();
+      const afterDelete = new Subject<PagedResult<CompanyListItem>>();
+      const previousPage = new Subject<PagedResult<CompanyListItem>>();
       getAllSpy.mockReturnValueOnce(afterDelete).mockReturnValueOnce(previousPage);
 
       requestDelete(companies[0]);

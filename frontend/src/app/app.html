@@ -4,57 +4,99 @@
     <p class="page-subtitle">Add and search companies</p>
   </header>
 
-  <main class="page-layout">
-    <section class="card">
-      <app-company-form (created)="onCompanyCreated($event)" />
-    </section>
+  <nav class="view-tabs" aria-label="Sections">
+    <button
+      type="button"
+      class="view-tab"
+      [class.view-tab--active]="activeView() === 'companies'"
+      (click)="onViewChange('companies')"
+    >
+      Companies
+    </button>
+    <button
+      type="button"
+      class="view-tab"
+      [class.view-tab--active]="activeView() === 'contacts'"
+      (click)="onViewChange('contacts')"
+    >
+      Contacts
+    </button>
+    <button
+      type="button"
+      class="view-tab"
+      [class.view-tab--active]="activeView() === 'orders'"
+      (click)="onViewChange('orders')"
+    >
+      Orders
+    </button>
+  </nav>
 
-    <section class="card">
-      <h2 class="card-title">Companies</h2>
+  @if (activeView() === 'companies') {
+    <main class="page-layout">
+      <section class="card">
+        <app-company-form (created)="onCompanyCreated($event)" />
+      </section>
 
-      <app-company-search
-        (searchRequested)="onSearchRequested($event)"
-        (clearRequested)="onClearRequested()"
-      />
+      <section class="card">
+        <h2 class="card-title">Companies</h2>
 
-      @if (deleteMessage(); as message) {
-        <p class="status-message status-message--success" role="status">{{ message }}</p>
-      }
-
-      @if (loading()) {
-        <p class="status-message">Loading companies…</p>
-      } @else if (searching()) {
-        <p class="status-message">Searching…</p>
-      } @else if (errorMessage(); as message) {
-        <p class="status-message status-message--error" role="alert">{{ message }}</p>
-      } @else if (!hasFetched()) {
-        <div class="initial-state">
-          <p class="status-message">Company list not loaded yet.</p>
-          <button type="button" (click)="loadCompanies()">Load companies</button>
-        </div>
-      } @else {
-        <app-company-list
-          [companies]="companies()"
-          [emptyMessage]="emptyMessage()"
-          (editRequested)="onEditRequested($event)"
-          (deleteRequested)="onDeleteRequested($event)"
+        <app-company-search
+          (searchRequested)="onSearchRequested($event)"
+          (clearRequested)="onClearRequested()"
         />
 
-        @if (!activeSearchQuery() && totalPages() > 0) {
-          <nav class="pagination" aria-label="Company list pages">
-            <button type="button" (click)="onPreviousPage()" [disabled]="pageNumber() <= 1">
-              Previous
-            </button>
-            <span class="pagination-status">Page {{ pageNumber() }} of {{ totalPages() }}</span>
-            <button type="button" (click)="onNextPage()" [disabled]="pageNumber() >= totalPages()">
-              Next
-            </button>
-          </nav>
+        @if (deleteMessage(); as message) {
+          <p class="status-message status-message--success" role="status">{{ message }}</p>
         }
-      }
-    </section>
-  </main>
+
+        @if (loading()) {
+          <p class="status-message">Loading companies…</p>
+        } @else if (searching()) {
+          <p class="status-message">Searching…</p>
+        } @else if (errorMessage(); as message) {
+          <p class="status-message status-message--error" role="alert">{{ message }}</p>
+        } @else if (!hasFetched()) {
+          <div class="initial-state">
+            <p class="status-message">Company list not loaded yet.</p>
+            <button type="button" (click)="loadCompanies()">Load companies</button>
+          </div>
+        } @else {
+          <app-company-list
+            [companies]="companies()"
+            [emptyMessage]="emptyMessage()"
+            (detailsRequested)="onDetailsRequested($event)"
+            (editRequested)="onEditRequested($event)"
+            (deleteRequested)="onDeleteRequested($event)"
+          />
+
+          @if (!activeSearchQuery() && totalPages() > 0) {
+            <nav class="pagination" aria-label="Company list pages">
+              <button type="button" (click)="onPreviousPage()" [disabled]="pageNumber() <= 1">
+                Previous
+              </button>
+              <span class="pagination-status">Page {{ pageNumber() }} of {{ totalPages() }}</span>
+              <button type="button" (click)="onNextPage()" [disabled]="pageNumber() >= totalPages()">
+                Next
+              </button>
+            </nav>
+          }
+        }
+      </section>
+    </main>
+  } @else if (activeView() === 'contacts') {
+    <main class="page-layout page-layout--single">
+      <app-contact-list />
+    </main>
+  } @else {
+    <main class="page-layout page-layout--single">
+      <app-order-list />
+    </main>
+  }
 </div>
+
+@if (viewingCompany(); as company) {
+  <app-company-details-modal [company]="company" (closed)="onDetailsClosed()" />
+}
 
 @if (editingCompany(); as company) {
   <app-company-edit-modal

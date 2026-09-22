@@ -463,5 +463,38 @@ public class CompanyServiceTests
 
         public Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default) =>
             Task.FromResult(Companies.RemoveAll(c => c.Id == id) > 0);
+
+        public Task<(IReadOnlyList<CompanySummary> Items, int TotalCount)> GetPagedSummariesAsync(
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken = default)
+        {
+            var ordered = Companies.OrderBy(c => c.Name, StringComparer.Ordinal).ThenBy(c => c.Id).ToList();
+            IReadOnlyList<CompanySummary> page = ordered
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .Select(c => new CompanySummary(c.Id, c.Name, c.WebsiteUrl, c.Contacts.Count, c.Orders.Count))
+                .ToList();
+
+            return Task.FromResult((page, ordered.Count));
+        }
+
+        public Task<Company?> GetByIdWithDetailsAsync(Guid id, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Companies.FirstOrDefault(c => c.Id == id));
+
+        public Task<IReadOnlyDictionary<Guid, CompanyRelationshipCounts>> GetRelationshipCountsAsync(
+            IReadOnlyCollection<Guid> companyIds,
+            CancellationToken cancellationToken = default)
+        {
+            IReadOnlyDictionary<Guid, CompanyRelationshipCounts> result = companyIds.ToDictionary(
+                id => id,
+                id =>
+                {
+                    var company = Companies.FirstOrDefault(c => c.Id == id);
+                    return new CompanyRelationshipCounts(company?.Contacts.Count ?? 0, company?.Orders.Count ?? 0);
+                });
+
+            return Task.FromResult(result);
+        }
     }
 }

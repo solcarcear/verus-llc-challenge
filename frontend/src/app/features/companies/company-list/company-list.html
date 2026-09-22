@@ -9,8 +9,13 @@
           <a [href]="company.websiteUrl" target="_blank" rel="noopener noreferrer">
             {{ company.websiteUrl }}
           </a>
+          <span class="company-counts">
+            {{ company.contactCount }} contact{{ company.contactCount === 1 ? '' : 's' }} ·
+            {{ company.orderCount }} order{{ company.orderCount === 1 ? '' : 's' }}
+          </span>
         </div>
         <div class="company-list-item-actions">
+          <button type="button" class="link-button" (click)="onDetails(company)">Details</button>
           <button type="button" class="link-button" (click)="onEdit(company)">Edit</button>
           <button type="button" class="link-button link-button--danger" (click)="onDelete(company)">
             Delete

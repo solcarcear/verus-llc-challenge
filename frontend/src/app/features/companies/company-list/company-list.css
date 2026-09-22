@@ -59,6 +59,11 @@
   color: #111827;
 }
 
+.company-counts {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
 .company-list-item a {
   font-size: 0.875rem;
   color: #4b5563;

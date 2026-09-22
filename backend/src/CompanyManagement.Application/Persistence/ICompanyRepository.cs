@@ -24,4 +24,23 @@ public interface ICompanyRepository
     // Returns false instead of throwing when the id doesn't exist, so callers can
     // turn that directly into a 404 without a separate existence check.
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+
+    // Same paging/ordering as GetPagedAsync, but projects straight to CompanySummary
+    // (one query, with ContactCount/OrderCount computed by SQL Server per row) instead
+    // of loading full Contact/Order collections for every company on the page.
+    Task<(IReadOnlyList<CompanySummary> Items, int TotalCount)> GetPagedSummariesAsync(
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+
+    // Returns the company with its Contacts and Orders collections populated, for the
+    // company details view. Null if no company with that id exists.
+    Task<Company?> GetByIdWithDetailsAsync(Guid id, CancellationToken cancellationToken = default);
+
+    // For a specific, typically small set of ids (e.g. this page's rows, or a search
+    // result set) - not the whole table. Used so search results can show the same
+    // Contact/Order counts as the browse list without a per-row query.
+    Task<IReadOnlyDictionary<Guid, CompanyRelationshipCounts>> GetRelationshipCountsAsync(
+        IReadOnlyCollection<Guid> companyIds,
+        CancellationToken cancellationToken = default);
 }

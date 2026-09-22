@@ -1,9 +1,16 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Company } from '../../../core/models/company.model';
+import { CompanyListItem } from '../../../core/models/company.model';
 import { CompanyList } from './company-list';
 
 describe('CompanyList', () => {
   let fixture: ComponentFixture<CompanyList>;
+
+  function findButton(label: string): HTMLButtonElement | null {
+    const buttons = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.link-button'),
+    );
+    return buttons.find((button) => button.textContent?.trim() === label) ?? null;
+  }
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -22,7 +29,7 @@ describe('CompanyList', () => {
 
   it('renders company names', () => {
     fixture.componentRef.setInput('companies', [
-      { id: '1', name: 'Acme Corp', websiteUrl: 'https://acme.com' },
+      { id: '1', name: 'Acme Corp', websiteUrl: 'https://acme.com', contactCount: 0, orderCount: 0 },
     ]);
     fixture.detectChanges();
 
@@ -32,7 +39,7 @@ describe('CompanyList', () => {
 
   it('renders website URLs as links with safe target attributes', () => {
     fixture.componentRef.setInput('companies', [
-      { id: '1', name: 'Acme Corp', websiteUrl: 'https://acme.com' },
+      { id: '1', name: 'Acme Corp', websiteUrl: 'https://acme.com', contactCount: 0, orderCount: 0 },
     ]);
     fixture.detectChanges();
 
@@ -40,6 +47,17 @@ describe('CompanyList', () => {
     expect(link?.getAttribute('href')).toBe('https://acme.com');
     expect(link?.getAttribute('target')).toBe('_blank');
     expect(link?.getAttribute('rel')).toBe('noopener noreferrer');
+  });
+
+  it('renders contact and order counts', () => {
+    fixture.componentRef.setInput('companies', [
+      { id: '1', name: 'Acme Corp', websiteUrl: 'https://acme.com', contactCount: 3, orderCount: 12 },
+    ]);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('3 contacts');
+    expect(text).toContain('12 orders');
   });
 
   it('renders a custom empty message when provided', () => {
@@ -51,9 +69,9 @@ describe('CompanyList', () => {
   });
 
   it('renders multiple companies', () => {
-    const companies: Company[] = [
-      { id: '1', name: 'Acme Corp', websiteUrl: 'https://acme.com' },
-      { id: '2', name: 'Globex', websiteUrl: 'https://globex.com' },
+    const companies: CompanyListItem[] = [
+      { id: '1', name: 'Acme Corp', websiteUrl: 'https://acme.com', contactCount: 0, orderCount: 0 },
+      { id: '2', name: 'Globex', websiteUrl: 'https://globex.com', contactCount: 0, orderCount: 0 },
     ];
     fixture.componentRef.setInput('companies', companies);
     fixture.detectChanges();
@@ -62,32 +80,56 @@ describe('CompanyList', () => {
     expect(items.length).toBe(2);
   });
 
-  it('emits editRequested with the company when Edit is clicked', () => {
-    const company: Company = { id: '1', name: 'Acme Corp', websiteUrl: 'https://acme.com' };
+  it('emits detailsRequested with the company when Details is clicked', () => {
+    const company: CompanyListItem = {
+      id: '1',
+      name: 'Acme Corp',
+      websiteUrl: 'https://acme.com',
+      contactCount: 0,
+      orderCount: 0,
+    };
     fixture.componentRef.setInput('companies', [company]);
-    const emitted: Company[] = [];
+    const emitted: CompanyListItem[] = [];
+    fixture.componentInstance.detailsRequested.subscribe((c) => emitted.push(c));
+    fixture.detectChanges();
+
+    findButton('Details')?.click();
+
+    expect(emitted).toEqual([company]);
+  });
+
+  it('emits editRequested with the company when Edit is clicked', () => {
+    const company: CompanyListItem = {
+      id: '1',
+      name: 'Acme Corp',
+      websiteUrl: 'https://acme.com',
+      contactCount: 0,
+      orderCount: 0,
+    };
+    fixture.componentRef.setInput('companies', [company]);
+    const emitted: CompanyListItem[] = [];
     fixture.componentInstance.editRequested.subscribe((c) => emitted.push(c));
     fixture.detectChanges();
 
-    const editButton = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
-      '.link-button:not(.link-button--danger)',
-    );
-    editButton?.click();
+    findButton('Edit')?.click();
 
     expect(emitted).toEqual([company]);
   });
 
   it('emits deleteRequested with the company when Delete is clicked', () => {
-    const company: Company = { id: '1', name: 'Acme Corp', websiteUrl: 'https://acme.com' };
+    const company: CompanyListItem = {
+      id: '1',
+      name: 'Acme Corp',
+      websiteUrl: 'https://acme.com',
+      contactCount: 0,
+      orderCount: 0,
+    };
     fixture.componentRef.setInput('companies', [company]);
-    const emitted: Company[] = [];
+    const emitted: CompanyListItem[] = [];
     fixture.componentInstance.deleteRequested.subscribe((c) => emitted.push(c));
     fixture.detectChanges();
 
-    const deleteButton = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
-      '.link-button--danger',
-    );
-    deleteButton?.click();
+    findButton('Delete')?.click();
 
     expect(emitted).toEqual([company]);
   });

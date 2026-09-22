@@ -1,0 +1,51 @@
+<div class="page-section">
+  <h2 class="card-title">Contacts</h2>
+
+  <div class="filters">
+    <label for="contact-active-filter">Status</label>
+    <select id="contact-active-filter" (change)="onFilterChange($event)">
+      <option value="all">All</option>
+      <option value="active">Active</option>
+      <option value="inactive">Inactive</option>
+    </select>
+  </div>
+
+  @if (loading()) {
+    <p class="status-message">Loading contacts…</p>
+  } @else if (errorMessage(); as message) {
+    <p class="status-message status-message--error" role="alert">{{ message }}</p>
+  } @else if (contacts().length === 0) {
+    <p class="empty-state">No contacts found.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Job Title</th>
+          <th>Status</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (contact of contacts(); track contact.id) {
+          <tr>
+            <td>{{ contact.firstName }} {{ contact.lastName }}</td>
+            <td>{{ contact.email }}</td>
+            <td>{{ contact.jobTitle ?? '—' }}</td>
+            <td>{{ contact.isActive ? 'Active' : 'Inactive' }}</td>
+            <td>{{ contact.createdAt | date: 'mediumDate' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    <nav class="pagination" aria-label="Contact list pages">
+      <button type="button" (click)="onPreviousPage()" [disabled]="pageNumber() <= 1">Previous</button>
+      <span class="pagination-status">
+        Page {{ pageNumber() }} of {{ totalPages() }} · {{ totalCount() }} total
+      </span>
+      <button type="button" (click)="onNextPage()" [disabled]="pageNumber() >= totalPages()">Next</button>
+    </nav>
+  }
+</div>

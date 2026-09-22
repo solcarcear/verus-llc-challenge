@@ -178,5 +178,19 @@ public sealed class CompanyService : ICompanyService
     public Task<bool> DeleteCompanyAsync(Guid id, CancellationToken cancellationToken = default) =>
         _repository.DeleteAsync(id, cancellationToken);
 
+    public Task<(IReadOnlyList<CompanySummary> Items, int TotalCount)> GetCompanySummariesPagedAsync(
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default) =>
+        _repository.GetPagedSummariesAsync(pageNumber, pageSize, cancellationToken);
+
+    public Task<Company?> GetCompanyDetailsAsync(Guid id, CancellationToken cancellationToken = default) =>
+        _repository.GetByIdWithDetailsAsync(id, cancellationToken);
+
+    public Task<IReadOnlyDictionary<Guid, CompanyRelationshipCounts>> GetRelationshipCountsAsync(
+        IReadOnlyCollection<Guid> companyIds,
+        CancellationToken cancellationToken = default) =>
+        _repository.GetRelationshipCountsAsync(companyIds, cancellationToken);
+
     private sealed record CompanySearchResult(Company Company, int Score);
 }

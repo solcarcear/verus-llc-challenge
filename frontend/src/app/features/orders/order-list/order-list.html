@@ -1,0 +1,51 @@
+<div class="page-section">
+  <h2 class="card-title">Orders</h2>
+
+  <div class="filters">
+    <label for="order-status-filter">Status</label>
+    <select id="order-status-filter" (change)="onFilterChange($event)">
+      <option value="all">All</option>
+      <option value="Pending">Pending</option>
+      <option value="Processing">Processing</option>
+      <option value="Completed">Completed</option>
+      <option value="Cancelled">Cancelled</option>
+    </select>
+  </div>
+
+  @if (loading()) {
+    <p class="status-message">Loading orders…</p>
+  } @else if (errorMessage(); as message) {
+    <p class="status-message status-message--error" role="alert">{{ message }}</p>
+  } @else if (orders().length === 0) {
+    <p class="empty-state">No orders found.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Order #</th>
+          <th>Amount</th>
+          <th>Status</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (order of orders(); track order.id) {
+          <tr>
+            <td>{{ order.orderNumber }}</td>
+            <td>{{ order.amount | currency }}</td>
+            <td>{{ order.status }}</td>
+            <td>{{ order.createdAt | date: 'mediumDate' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    <nav class="pagination" aria-label="Order list pages">
+      <button type="button" (click)="onPreviousPage()" [disabled]="pageNumber() <= 1">Previous</button>
+      <span class="pagination-status">
+        Page {{ pageNumber() }} of {{ totalPages() }} · {{ totalCount() }} total
+      </span>
+      <button type="button" (click)="onNextPage()" [disabled]="pageNumber() >= totalPages()">Next</button>
+    </nav>
+  }
+</div>

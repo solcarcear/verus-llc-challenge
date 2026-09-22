@@ -1,0 +1,85 @@
+<div class="modal-backdrop" (click)="onClose()">
+  <div
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="company-details-title"
+    (click)="$event.stopPropagation()"
+  >
+    <h2 id="company-details-title">{{ company().name }}</h2>
+
+    @if (loading()) {
+      <p class="status-message">Loading company details…</p>
+    } @else if (errorMessage(); as message) {
+      <p class="status-message status-message--error" role="alert">{{ message }}</p>
+    } @else if (details(); as details) {
+      <section class="details-section">
+        <h3>General Information</h3>
+        <p class="details-website">
+          Website:
+          <a [href]="details.websiteUrl" target="_blank" rel="noopener noreferrer">{{ details.websiteUrl }}</a>
+        </p>
+      </section>
+
+      <section class="details-section">
+        <h3>Contacts ({{ details.contacts.length }})</h3>
+        @if (details.contacts.length === 0) {
+          <p class="empty-state">No contacts for this company.</p>
+        } @else {
+          <table class="details-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Job Title</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (contact of details.contacts; track contact.id) {
+                <tr>
+                  <td>{{ contact.firstName }} {{ contact.lastName }}</td>
+                  <td>{{ contact.email }}</td>
+                  <td>{{ contact.jobTitle ?? '—' }}</td>
+                  <td>{{ contact.isActive ? 'Active' : 'Inactive' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+
+      <section class="details-section">
+        <h3>Orders ({{ details.orders.length }})</h3>
+        @if (details.orders.length === 0) {
+          <p class="empty-state">No orders for this company.</p>
+        } @else {
+          <table class="details-table">
+            <thead>
+              <tr>
+                <th>Order #</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (order of details.orders; track order.id) {
+                <tr>
+                  <td>{{ order.orderNumber }}</td>
+                  <td>{{ order.amount | currency }}</td>
+                  <td>{{ order.status }}</td>
+                  <td>{{ order.createdAt | date: 'mediumDate' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+    }
+
+    <div class="modal-actions">
+      <button type="button" class="secondary" (click)="onClose()">Close</button>
+    </div>
+  </div>
+</div>

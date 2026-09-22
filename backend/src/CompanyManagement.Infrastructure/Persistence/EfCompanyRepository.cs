@@ -77,4 +77,73 @@ public sealed class EfCompanyRepository : ICompanyRepository
 
         return true;
     }
+
+    public async Task<(IReadOnlyList<CompanySummary> Items, int TotalCount)> GetPagedSummariesAsync(
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Companies.AsNoTracking();
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        // Projecting straight to CompanySummary - rather than loading Company entities
+        // and then a separate query per row for their counts - keeps this at one
+        // round trip to SQL Server: c.Contacts.Count/c.Orders.Count compile to
+        // correlated subqueries evaluated set-based for the whole page, not N+1.
+        var items = await query
+            .OrderBy(c => c.Name)
+            .ThenBy(c => c.Id)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(c => new CompanySummary(c.Id, c.Name, c.WebsiteUrl, c.Contacts.Count, c.Orders.Count))
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
+
+    public async Task<Company?> GetByIdWithDetailsAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        // AsSplitQuery(): Contacts and Orders are sibling collections. A single joined
+        // query would return one row per (contact, order) combination - a company with
+        // 10 contacts and 30 orders would come back as 300 duplicated rows that EF then
+        // has to de-duplicate client-side. Splitting into two queries (one per
+        // collection) avoids that multiplication entirely.
+        return await _dbContext.Companies
+            .AsNoTracking()
+            .AsSplitQuery()
+            .Include(c => c.Contacts)
+            .Include(c => c.Orders)
+            .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, CompanyRelationshipCounts>> GetRelationshipCountsAsync(
+        IReadOnlyCollection<Guid> companyIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (companyIds.Count == 0)
+        {
+            return new Dictionary<Guid, CompanyRelationshipCounts>();
+        }
+
+        var contactCounts = await _dbContext.Contacts
+            .AsNoTracking()
+            .Where(c => companyIds.Contains(c.CompanyId))
+            .GroupBy(c => c.CompanyId)
+            .Select(g => new { CompanyId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.CompanyId, x => x.Count, cancellationToken);
+
+        var orderCounts = await _dbContext.Orders
+            .AsNoTracking()
+            .Where(o => companyIds.Contains(o.CompanyId))
+            .GroupBy(o => o.CompanyId)
+            .Select(g => new { CompanyId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.CompanyId, x => x.Count, cancellationToken);
+
+        return companyIds.ToDictionary(
+            id => id,
+            id => new CompanyRelationshipCounts(
+                contactCounts.GetValueOrDefault(id),
+                orderCounts.GetValueOrDefault(id)));
+    }
 }

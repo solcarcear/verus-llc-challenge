@@ -1,4 +1,5 @@
 using CompanyManagement.Api.Contracts;
+using CompanyManagement.Application.Persistence;
 using CompanyManagement.Application.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -52,9 +53,11 @@ public sealed class CompaniesController : ControllerBase
     // Search returns its full relevance-scored result set unpaginated (it's already a
     // whole-dataset, in-memory ranking operation over a typically small match count).
     // Plain browsing (no search) is paginated, since that's the path that would otherwise
-    // load the entire Companies table into memory.
+    // load the entire Companies table into memory. The browse list returns
+    // CompanyListItemResponse (with Contact/Order counts) rather than plain CompanyResponse,
+    // since the UI's main use of this endpoint is showing those counts per row.
     [HttpGet]
-    [ProducesResponseType(typeof(PagedResponse<CompanyResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PagedResponse<CompanyListItemResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAllCompanies(
         [FromQuery(Name = "search")] string? search,
         [FromQuery] int pageNumber = 1,
@@ -64,21 +67,29 @@ public sealed class CompaniesController : ControllerBase
         if (!string.IsNullOrWhiteSpace(search))
         {
             var searchResults = await _companyService.SearchCompaniesAsync(search, cancellationToken);
-            return Ok(searchResults.Select(CompanyResponse.FromDomain));
+            var counts = await _companyService.GetRelationshipCountsAsync(
+                searchResults.Select(c => c.Id).ToList(), cancellationToken);
+
+            return Ok(searchResults.Select(c =>
+            {
+                var relationshipCounts = counts.GetValueOrDefault(c.Id, new CompanyRelationshipCounts(0, 0));
+                return new CompanyListItemResponse(
+                    c.Id, c.Name, c.WebsiteUrl, relationshipCounts.ContactCount, relationshipCounts.OrderCount);
+            }));
         }
 
         var normalizedPageNumber = pageNumber < 1 ? 1 : pageNumber;
         var normalizedPageSize = pageSize < 1 ? DefaultPageSize : Math.Min(pageSize, MaxPageSize);
 
-        var (companies, totalCount) = await _companyService.GetCompaniesPagedAsync(
+        var (companies, totalCount) = await _companyService.GetCompanySummariesPagedAsync(
             normalizedPageNumber, normalizedPageSize, cancellationToken);
 
         var totalPages = totalCount == 0
             ? 0
             : (int)Math.Ceiling(totalCount / (double)normalizedPageSize);
 
-        return Ok(new PagedResponse<CompanyResponse>(
-            companies.Select(CompanyResponse.FromDomain).ToList(),
+        return Ok(new PagedResponse<CompanyListItemResponse>(
+            companies.Select(CompanyListItemResponse.FromSummary).ToList(),
             normalizedPageNumber,
             normalizedPageSize,
             totalCount,
@@ -98,6 +109,25 @@ public sealed class CompaniesController : ControllerBase
         }
 
         return Ok(CompanyResponse.FromDomain(company));
+    }
+
+    // Separate from GetCompanyById on purpose: that endpoint is the lightweight one used
+    // by CreatedAtAction/edit flows, while this one does the heavier Contacts/Orders
+    // Include for the company details screen - callers that don't need the relationships
+    // (like the edit modal) aren't paying for them.
+    [HttpGet("{id:guid}/details")]
+    [ProducesResponseType(typeof(CompanyDetailsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetCompanyDetails(Guid id, CancellationToken cancellationToken)
+    {
+        var company = await _companyService.GetCompanyDetailsAsync(id, cancellationToken);
+
+        if (company is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(CompanyDetailsResponse.FromDomain(company));
     }
 
     [HttpPut("{id:guid}")]
